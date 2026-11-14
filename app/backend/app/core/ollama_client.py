@@ -9,6 +9,14 @@ import httpx
 from app.core.config import settings
 
 
+def _build_options(temperature: float, num_ctx: int, num_predict: int) -> dict:
+    options = {"temperature": temperature, "num_ctx": num_ctx, "num_predict": num_predict}
+    # ส่ง num_thread เฉพาะเมื่อตั้งค่าไว้ (OLLAMA_NUM_THREAD) — ไม่งั้นให้ Ollama เลือกตามจำนวนคอร์เอง
+    if settings.ollama_num_thread > 0:
+        options["num_thread"] = settings.ollama_num_thread
+    return options
+
+
 def _call_ollama(
     base_url: str,
     prompt: str,
@@ -23,12 +31,7 @@ def _call_ollama(
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_ctx": num_ctx,
-                "num_predict": num_predict,
-                "num_thread": 6,  # ใช้ 6 logical threads บน Intel i5-8250U เพื่อเร่งความเร็ว
-            },
+            "options": _build_options(temperature, num_ctx, num_predict),
         },
         timeout=300.0,  # ขยาย timeout เป็น 300 วินาที ป้องกัน ReadTimeout บน CPU
     )

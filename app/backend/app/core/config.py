@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     ollama_healthcheck_timeout_ms: int = 2000
     ollama_model_default: str = "qwen2.5:3b-instruct"
     embedding_model: str = "nomic-embed-text"
+    # จำนวนเธรดที่ส่งให้ Ollama — 0 = ให้ Ollama เลือกเอง (เท่าจำนวนคอร์จริง)
+    # ห้ามตั้งเกินจำนวนคอร์ของเครื่อง: บน 4 คอร์ที่ไม่มี SMT การตั้ง 6 ทำให้ช้าลงราว 40 เท่า
+    ollama_num_thread: int = 0
 
     # Database
     database_url: str = f"sqlite:///{_BACKEND_DIR / 'vat_copilot.db'}"
