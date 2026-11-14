@@ -7,6 +7,14 @@ OUTPUT: {"resolved_query": str, "chunks": list[dict], "relevance_scores": list[f
 
 Final Scope (A5): ค้นหาเฉพาะ kb_articles ที่ status='approved' เท่านั้น
 และใช้ Hybrid Search (Semantic Cosine Similarity + Keyword Matching Boost)
+
+หลักการตัวบทหลัก (settings.retrieval_primary_only, ค่าเริ่มต้น True):
+- ประกาศ 57 (ยื่นกระดาษ) และ 159 (ยื่นอินเทอร์เน็ต) เป็นตัวบทหลักฉบับรวมล่าสุด → ค้นเฉพาะ chunk เหล่านี้
+- ประกาศ 234 (DBD) ค้นเฉพาะเมื่อคำถามระบุ DBD
+- ฉบับแก้ไข (74, 139, 165, 214, 215, 245, 246) ไม่ถูกค้น — ใส่เป็นที่มาในข้อความอ้างอิง (citation)
+  เพราะเนื้อหาถูกเขียนทับเข้าไปในฉบับ 57/159 แล้ว และฉบับเก่ามีกฎที่ยกเลิกไปแล้ว
+- ข้อท้ายประกาศ (วันใช้บังคับ/ผู้ลงนาม) ไม่ถูกค้น
+role / amended_by อ่านจาก metadata (ผลของ chunking/scripts/annotate_roles.py) ถ้ามี ไม่งั้นใช้ค่าสำรองด้านล่าง
 """
 import re
 import json
@@ -17,6 +25,68 @@ from app.core.config import settings
 from app.core.embeddings import get_embedding
 from app.db.session import SessionLocal
 from app.models.models import KbArticle
+
+PRIMARY_ANNOUNCEMENTS = {"57", "159"}
+SPECIAL_ANNOUNCEMENTS = {"234"}
+ANNOUNCEMENT_LABEL = {"57": "ยื่นแบบกระดาษ", "159": "ยื่นผ่านอินเทอร์เน็ต", "234": "ยื่นผ่าน DBD"}
+DBD_KEYWORDS = ["dbd", "กรมพัฒนาธุรกิจ", "กรมพัฒนาธุรกิจการค้า", "จดพร้อมตั้งบริษัท", "ฉบับที่ 234", "ฉบับ 234"]
+BOILERPLATE_RE = re.compile(r"^\s*ข้อ\s*[0-9๐-๙]+\s*ประกาศนี้ให้ใช้บังคับ")
+# ค่าสำรอง: ฉบับที่แก้ไขเพิ่มเติมตัวบทหลักแต่ละข้อ (จาก chunking/scripts/annotate_roles.py, ตรวจกับต้นฉบับแล้ว)
+FALLBACK_AMENDED_BY = {
+    "VAT57_ART_04": ["74", "139", "165"], "VAT57_ART_04_1": ["245"],
+    "VAT57_ART_05_A": ["74", "165", "215"], "VAT57_ART_05_B": ["74", "165"], "VAT57_ART_05_C": ["74", "165", "215"],
+    "VAT57_ART_06": ["74"], "VAT57_ART_07": ["74"], "VAT57_ART_08": ["74"],
+    "VAT57_ART_09": ["74", "139", "165", "245"], "VAT57_ART_10": ["74"],
+    "VAT159_ART_01": ["246"], "VAT159_ART_05_A": ["214", "246"], "VAT159_ART_05_B": ["214", "246"],
+    "VAT159_ART_05_C": ["214", "246"], "VAT159_ART_05_1": ["246"], "VAT159_ART_06": ["214", "246"],
+    "VAT159_ART_08": ["214"], "VAT159_ART_09": ["214", "246"],
+}
+
+
+def announcement_of(chunk_id: str) -> str:
+    m = re.match(r"VAT(\d+)_", chunk_id or "")
+    return m.group(1) if m else ""
+
+
+def role_of(chunk_id: str) -> str:
+    meta = _ARTICLES_META.get(chunk_id, {})
+    if meta.get("role"):
+        return meta["role"]
+    ann = announcement_of(chunk_id)
+    if ann in PRIMARY_ANNOUNCEMENTS:
+        return "primary"
+    if ann in SPECIAL_ANNOUNCEMENTS:
+        return "special"
+    return "amendment" if ann else "other"
+
+
+def is_boilerplate(chunk_id: str, text: str) -> bool:
+    meta = _ARTICLES_META.get(chunk_id, {})
+    if "is_boilerplate" in meta:
+        return bool(meta["is_boilerplate"])
+    return bool(BOILERPLATE_RE.match(text or ""))
+
+
+def amended_by(chunk_id: str) -> list[str]:
+    meta = _ARTICLES_META.get(chunk_id, {})
+    if meta.get("amended_by"):
+        return sorted({announcement_of(a) for a in meta["amended_by"]}, key=int)
+    return FALLBACK_AMENDED_BY.get(chunk_id, [])
+
+
+def legal_citation(chunk_id: str, source_section: str | None = None) -> str:
+    """เช่น 'ประกาศอธิบดีฯ VAT (ฉบับที่ 57) ข้อ 9 ซึ่งแก้ไขเพิ่มเติมโดยฉบับที่ 74, 139, 165, 245 [ยื่นแบบกระดาษ]'"""
+    ann = announcement_of(chunk_id)
+    meta = _ARTICLES_META.get(chunk_id, {})
+    article = meta.get("article_ref") or ""
+    text = f"ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ {ann}) {article}".strip() if ann else (source_section or "")
+    amenders = amended_by(chunk_id)
+    if amenders:
+        text += " ซึ่งแก้ไขเพิ่มเติมโดยฉบับที่ " + ", ".join(amenders)
+    if ann in ANNOUNCEMENT_LABEL:
+        text += f" [{ANNOUNCEMENT_LABEL[ann]}]"
+    return text
+
 
 # แคช metadata และ active law chunks จาก Graph RAG
 _ARTICLES_META = {}
@@ -169,7 +239,8 @@ def _keyword_boost(query: str, text: str, chunk_id: str | None = None) -> float:
                 boost += 0.05
 
     # 4. Graph RAG Active Law Lineage Boost (+0.06 สำหรับกฎหมายปัจจุบันที่ยังมีผลบังคับใช้)
-    if chunk_id and chunk_id in _ACTIVE_LAW_CHUNKS:
+    #    ใช้เฉพาะเมื่อค้นทุกฉบับ — โหมดตัวบทหลักทุก chunk เป็นฉบับปัจจุบันอยู่แล้ว
+    if not settings.retrieval_primary_only and chunk_id and chunk_id in _ACTIVE_LAW_CHUNKS:
         boost += 0.06
 
     return max(-1.0, min(boost, 0.90))
@@ -192,6 +263,12 @@ def retrieve(resolved_query: str, top_k: int = 5) -> dict:
         is_dbd_query = any(k in resolved_query.lower() for k in ["dbd", "กรมพัฒนาธุรกิจ", "กรมพัฒนาธุรกิจการค้า", "จดพร้อมตั้งบริษัท", "ฉบับที่ 234", "ฉบับ 234"])
         if not is_dbd_query:
             articles = [a for a in articles if not a.id.startswith("VAT234_")]
+
+        # หลักการตัวบทหลัก: ค้นเฉพาะ 57/159 (+234 เมื่อระบุ DBD) และตัดข้อท้ายประกาศ
+        if settings.retrieval_primary_only:
+            allowed = {"primary", "special"} if is_dbd_query else {"primary"}
+            articles = [a for a in articles
+                        if role_of(a.id) in allowed and not is_boilerplate(a.id, a.content)]
 
         # คำนวณ Query Embedding โดยระบุ is_query=True
         q_vec = np.array(get_embedding(resolved_query, is_query=True), dtype=float)
@@ -216,6 +293,8 @@ def retrieve(resolved_query: str, top_k: int = 5) -> dict:
                 "chunk_id": art.id,
                 "text": art.content,
                 "source_section": art.source_section or "ประกาศอธิบดีฯ VAT",
+                "role": role_of(art.id),
+                "citation": legal_citation(art.id, art.source_section),
             })
             relevance_scores.append(round(score, 4))
 

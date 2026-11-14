@@ -25,9 +25,16 @@ def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (norm_a * norm_b))
 
 
+THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
+
+
 def verify_regex(draft_text: str, chunks: list[dict]) -> dict:
+    # แปลงเลขไทยเป็นอารบิกก่อนเทียบ (ตัวบทหลายฉบับใช้ "ข้อ ๙" ขณะที่คำตอบมักเขียน "ข้อ 9")
+    draft_text = (draft_text or "").translate(THAI_DIGITS)
     cited_sections = set(SECTION_PATTERN.findall(draft_text))
-    source_text = " ".join(c.get("text", "") + " " + c.get("source_section", "") for c in chunks)
+    source_text = " ".join(
+        c.get("text", "") + " " + c.get("source_section", "") + " " + c.get("citation", "") for c in chunks
+    ).translate(THAI_DIGITS)
     
     ungrounded = [s for s in cited_sections if s not in source_text]
     

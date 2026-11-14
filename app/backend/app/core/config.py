@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 5
     retrieval_top_k_in_prompt: int = 3
     chunk_max_tokens: int = 350
+    # ค้นเฉพาะตัวบทหลัก 57/159 (+234 เมื่อระบุ DBD) — ฉบับแก้ไขใช้เป็นที่มาในข้อความอ้างอิง
+    retrieval_primary_only: bool = True
 
     # Dev workflow
     use_mock_llm: bool = False

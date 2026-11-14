@@ -88,6 +88,11 @@ def check_channel_ambiguity(raw_text: str, history: list[dict]) -> tuple[bool, s
         "dbd", "กรมพัฒนาธุรกิจ", "จัดตั้งบริษัท", "ฉบับที่ 234", "ฉบับ 234", "พร้อมจัดตั้ง"
     ])
 
+    # คำถามที่มีพฤติการณ์ตามข้อ 6 (เหตุไม่ออกใบทะเบียน ซึ่งเหมือนกันทั้ง 57/159) ไม่ต้องถามช่องทาง
+    # ให้ไปถึง Agent 6 เพื่อส่งต่อเจ้าหน้าที่
+    if a6.find_risk_factors(raw_text):
+        return False, None
+
     if has_paper:
         return False, "paper"
     if has_internet:
@@ -400,11 +405,11 @@ def run_pipeline(
             for c in chunks[:2]:
                 txt = c.get("text", "").replace("\n", " ").strip()
                 clean_snippet = txt[:240].strip()
-                bullet_points.append(f"• **{c['source_section']}:** {clean_snippet}")
+                bullet_points.append(f"• **{c.get('citation') or c['source_section']}:** {clean_snippet}")
             summary_from_chunks = "\n\n".join(bullet_points)
             draft = {
                 "draft_text": f"สรุปสาระสำคัญและหลักเกณฑ์การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มตามตัวบทกฎหมาย:\n\n{summary_from_chunks}\n\n• **การดำเนินการ:** ให้ผู้ประกอบการจัดเตรียมคำขอและเอกสารหลักฐานให้ถูกต้องครบถ้วนตามหลักเกณฑ์ที่ระบุข้างต้น",
-                "citations": [{"text_span": c["source_section"], "source_section": c["source_section"]} for c in chunks[:len(bullet_points)]],
+                "citations": [{"text_span": c.get("citation") or c["source_section"], "source_section": c.get("citation") or c["source_section"]} for c in chunks[:len(bullet_points)]],
                 "answer_summary": "สรุปสาระสำคัญจากตัวบทกฎหมายที่เกี่ยวข้อง",
             }
         draft_ans = DraftAnswer(
