@@ -1,0 +1,967 @@
+{
+  "graph_metadata": {
+    "title": "Graph RAG: แผนผังความสัมพันธ์และการสืบทอดกฎหมายจดทะเบียนภาษีมูลค่าเพิ่ม (VAT Registration)",
+    "description": "โครงสร้างกราฟองค์ความรู้ (Knowledge Graph) สำหรับระบบ Graph RAG เพื่อให้ Chatbot เข้าใจสายวิวัฒนาการของกฎหมาย การยกเลิก/แทนที่ (Supersede) และความเชื่อมโยงของแต่ละหัวข้อจากประกาศทั้ง 10 ฉบับ",
+    "total_announcements": 10,
+    "total_topics": 10,
+    "total_chunks": 75,
+    "total_nodes": 95,
+    "total_edges": 178
+  },
+  "nodes": {
+    "announcements": [
+      {
+        "id": "ANN_57",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 57",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 57)",
+        "role": "กฎหมายแม่บท (Master Law) - ช่องทางปกติ (Walk-in)",
+        "channel": "ยื่นด้วยตนเอง ณ สำนักงานสรรพากร",
+        "issue_date": "1994-10-25",
+        "effective_date": "1994-10-25",
+        "signatory": "ม.ร.ว.จัตุมงคล โสณกุล",
+        "status": "ยังมีผลบังคับใช้ (โดยมีข้อความที่ถูกแก้ไขเพิ่มเติมโดยฉบับ 74, 139, 165, 215, 245)",
+        "chunk_ids": [
+          "VAT57_ART_01",
+          "VAT57_ART_02",
+          "VAT57_ART_03",
+          "VAT57_ART_04",
+          "VAT57_ART_04_1",
+          "VAT57_ART_05_A",
+          "VAT57_ART_05_B",
+          "VAT57_ART_05_C",
+          "VAT57_ART_06",
+          "VAT57_ART_07",
+          "VAT57_ART_08",
+          "VAT57_ART_09",
+          "VAT57_ART_10"
+        ]
+      },
+      {
+        "id": "ANN_74",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 74",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 74)",
+        "role": "ฉบับแก้ไขเพิ่มเติมฉบับที่ 57 (ครั้งที่ 1)",
+        "channel": "ยื่นด้วยตนเอง ณ สำนักงานสรรพากร",
+        "issue_date": "1995-12-02",
+        "effective_date": "1996-01-01",
+        "signatory": "ร้อยเอก สุชาติ เชาว์วิศิษฐ",
+        "status": "ถูกแทนที่บางส่วนโดยฉบับ 139 และฉบับ 165",
+        "chunk_ids": [
+          "VAT74_ART_04",
+          "VAT74_ART_05_A",
+          "VAT74_ART_05_B",
+          "VAT74_ART_05_C",
+          "VAT74_ART_06",
+          "VAT74_ART_07",
+          "VAT74_ART_08",
+          "VAT74_ART_09",
+          "VAT74_ART_10"
+        ]
+      },
+      {
+        "id": "ANN_139",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 139",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 139)",
+        "role": "ฉบับแก้ไขเพิ่มเติมฉบับที่ 57 (ครั้งที่ 2)",
+        "channel": "ยื่นด้วยตนเอง ณ สำนักงานสรรพากร",
+        "issue_date": "2002-10-10",
+        "effective_date": "2002-10-11",
+        "signatory": "นายศุภรัตน์ ควัฒน์กุล",
+        "status": "ถูกแทนที่บางส่วนโดยฉบับ 165",
+        "chunk_ids": [
+          "VAT139_ART_01",
+          "VAT139_ART_02",
+          "VAT139_ART_03"
+        ]
+      },
+      {
+        "id": "ANN_159",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 159",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 159)",
+        "role": "กฎหมายแม่บท (Master Law) - ช่องทางอินเทอร์เน็ต",
+        "channel": "ยื่นผ่านอินเทอร์เน็ต (www.rd.go.th)",
+        "issue_date": "2004-07-30",
+        "effective_date": "2004-08-01",
+        "signatory": "นายศุภรัตน์ ควัฒน์กุล",
+        "status": "ยังมีผลบังคับใช้ (แก้ไขเพิ่มเติมโดยฉบับ 214 และฉบับ 246)",
+        "chunk_ids": [
+          "VAT159_ART_01",
+          "VAT159_ART_02",
+          "VAT159_ART_03",
+          "VAT159_ART_04",
+          "VAT159_ART_05_A",
+          "VAT159_ART_05_B",
+          "VAT159_ART_05_C",
+          "VAT159_ART_05_1",
+          "VAT159_ART_06",
+          "VAT159_ART_07",
+          "VAT159_ART_08",
+          "VAT159_ART_09",
+          "VAT159_ART_10"
+        ]
+      },
+      {
+        "id": "ANN_165",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 165",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 165)",
+        "role": "ฉบับแก้ไขเพิ่มเติมฉบับที่ 57 (ครั้งที่ 3)",
+        "channel": "ยื่นด้วยตนเอง ณ สำนักงานสรรพากร",
+        "issue_date": "2006-08-16",
+        "effective_date": "2006-08-16",
+        "signatory": "นายศิโรตม์ สวัสดิ์พาณิชย์",
+        "status": "ถูกแทนที่บางส่วนโดยฉบับ 215",
+        "chunk_ids": [
+          "VAT165_ART_01",
+          "VAT165_ART_02_A",
+          "VAT165_ART_02_B",
+          "VAT165_ART_02_C",
+          "VAT165_ART_03",
+          "VAT165_ART_04"
+        ]
+      },
+      {
+        "id": "ANN_214",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 214",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 214)",
+        "role": "ฉบับแก้ไขเพิ่มเติมฉบับที่ 159 (ครั้งที่ 1)",
+        "channel": "ยื่นผ่านอินเทอร์เน็ต (www.rd.go.th)",
+        "issue_date": "2017-04-27",
+        "effective_date": "2017-05-01",
+        "signatory": "นายประสงค์ พูนธเนศ",
+        "status": "ถูกแทนที่บางส่วนโดยฉบับ 246",
+        "chunk_ids": [
+          "VAT214_ART_01_A",
+          "VAT214_ART_01_B",
+          "VAT214_ART_01_C",
+          "VAT214_ART_02",
+          "VAT214_ART_03",
+          "VAT214_ART_04",
+          "VAT214_ART_05"
+        ]
+      },
+      {
+        "id": "ANN_215",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 215",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 215)",
+        "role": "ฉบับแก้ไขเพิ่มเติมฉบับที่ 57 (ครั้งที่ 4)",
+        "channel": "ยื่นด้วยตนเอง ณ สำนักงานสรรพากร",
+        "issue_date": "2017-09-14",
+        "effective_date": "2017-09-14",
+        "signatory": "นายประสงค์ พูนธเนศ",
+        "status": "ยังมีผลบังคับใช้ (กฎหมายปัจจุบันเรื่องเอกสารคู่สมรสและคอนโด)",
+        "chunk_ids": [
+          "VAT215_ART_01",
+          "VAT215_ART_02",
+          "VAT215_ART_03"
+        ]
+      },
+      {
+        "id": "ANN_234",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 234",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 234)",
+        "role": "กฎหมายแม่บท (Master Law) - ช่องทาง DBD",
+        "channel": "ยื่นผ่านกรมพัฒนาธุรกิจการค้า (DBD)",
+        "issue_date": "2020-04-17",
+        "effective_date": "2020-04-20",
+        "signatory": "นายเอกนิติ นิติทัณฑ์ประภาศ",
+        "status": "ยังมีผลบังคับใช้ (การจด VAT พร้อมจดตั้งบริษัท)",
+        "chunk_ids": [
+          "VAT234_ART_01",
+          "VAT234_ART_02",
+          "VAT234_ART_03",
+          "VAT234_ART_04",
+          "VAT234_ART_05",
+          "VAT234_ART_06",
+          "VAT234_ART_07",
+          "VAT234_ART_08",
+          "VAT234_ART_09",
+          "VAT234_ART_ATTACHMENT"
+        ]
+      },
+      {
+        "id": "ANN_245",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 245",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 245)",
+        "role": "ฉบับแก้ไขเพิ่มเติมฉบับที่ 57 (ครั้งที่ 5)",
+        "channel": "ยื่นด้วยตนเอง / ลิงก์สู่ระบบออนไลน์",
+        "issue_date": "2022-09-14",
+        "effective_date": "2022-09-14",
+        "signatory": "นายลวรณ แสงสนิท",
+        "status": "ยังมีผลบังคับใช้ (เพิ่มข้อ 4/1 ค้าออนไลน์คอนโด และปรับข้อ 9 ผู้มีอำนาจ)",
+        "chunk_ids": [
+          "VAT245_ART_01",
+          "VAT245_ART_02",
+          "VAT245_ART_03"
+        ]
+      },
+      {
+        "id": "ANN_246",
+        "type": "announcement",
+        "label": "ประกาศ VAT ฉบับที่ 246",
+        "official_title": "ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 246)",
+        "role": "ฉบับแก้ไขเพิ่มเติมฉบับที่ 159 (ครั้งที่ 2)",
+        "channel": "ยื่นผ่านอินเทอร์เน็ต (www.rd.go.th)",
+        "issue_date": "2022-09-14",
+        "effective_date": "2022-09-14",
+        "signatory": "นายลวรณ แสงสนิท",
+        "status": "ยังมีผลบังคับใช้ (กฎหมายปัจจุบันช่องทางออนไลน์)",
+        "chunk_ids": [
+          "VAT246_ART_01",
+          "VAT246_ART_02_A",
+          "VAT246_ART_02_B",
+          "VAT246_ART_02_C",
+          "VAT246_ART_03",
+          "VAT246_ART_04",
+          "VAT246_ART_05",
+          "VAT246_ART_06"
+        ]
+      }
+    ],
+    "topics": [
+      {
+        "id": "TOPIC_TIMING",
+        "type": "topic",
+        "label": "กำหนดเวลายื่นคำขอจดทะเบียน",
+        "description": "ระยะเวลาและเงื่อนไขการยื่น: ยื่นก่อนเริ่มกิจการได้ภายใน 6 เดือน / ยื่นเมื่อเริ่มกิจการ / กิจการยกเว้นแจ้งขอเข้าสู่ระบบภายใน 30 วัน",
+        "current_rule": "เหมือนกันทุกช่องทาง (ก่อนเริ่มกิจการ 6 เดือน / เริ่มกิจการทันที / กิจการยกเว้นภายใน 30 วัน)"
+      },
+      {
+        "id": "TOPIC_LOCATION",
+        "type": "topic",
+        "label": "สถานที่และช่องทางการยื่นคำขอ",
+        "description": "ช่องทางการยื่น: (1) กทม. สำนักงานสรรพากรพื้นที่หรือสาขา (2) ต่างจังหวัด สำนักงานสรรพากรพื้นที่สาขา (3) ธุรกิจขนาดใหญ่ สำนักบริหารภาษีธุรกิจขนาดใหญ่ (4) ออนไลน์ www.rd.go.th (5) DBD กรมพัฒนาธุรกิจการค้า",
+        "current_rule": "Walk-in ตามฉบับ 139 + ฉบับ 165; ออนไลน์ตามฉบับ 159 + 246; DBD ตามฉบับ 234"
+      },
+      {
+        "id": "TOPIC_DOCUMENTS",
+        "type": "topic",
+        "label": "เอกสารหลักฐานประกอบคำขอ",
+        "description": "เอกสารจำแนกตามประเภทผู้ประกอบการ: บุคคลธรรมดา, ต่างด้าว, คณะบุคคล, คู่สมรส, นิติบุคคล, บ.ต่างประเทศ, สหกรณ์, การมอบอำนาจ",
+        "current_rule": "Walk-in ใช้ฉบับ 165 + ฉบับ 215 (คู่สมรสแนบใบทะเบียนสมรส); ออนไลน์ใช้ฉบับ 246"
+      },
+      {
+        "id": "TOPIC_PREMISES",
+        "type": "topic",
+        "label": "สถานที่ตั้งสถานประกอบการ",
+        "description": "หลักเกณฑ์ป้ายชื่อสถานประกอบการ, สัญญาเช่า, หนังสือยินยอมให้ใช้สถานที่ฟรี, ทะเบียนบ้าน, อาคารชุด/คอนโดมิเนียม",
+        "current_rule": "ทั่วไปต้องมีป้ายชื่อ+สัญญาเช่า/ยินยอม+หนังสือรับรองนิติบุคคลคอนโด; เว้นแต่นักขายออนไลน์คนไทยยกเว้นไม่ต้องมีหนังสือรับรองนิติบุคคลคอนโด (ฉบับ 246)"
+      },
+      {
+        "id": "TOPIC_REJECTION",
+        "type": "topic",
+        "label": "เหตุผลที่สรรพากรไม่ออกใบทะเบียน",
+        "description": "สาเหตุการถูกปฏิเสธ: แสดงข้อมูลเท็จ, ตัวแทนเชิด (Nominee), ไม่มีสถานที่จริง, ใช้ สนง.บัญชี/กฎหมาย, ไม่ทำธุรกิจจริง, เคยถูกเพิกถอน, ไม่ส่งเอกสารตามที่ขอ, ไม่อัปโหลดเอกสาร",
+        "current_rule": "Walk-in มี 6 ข้อ (ฉบับ 57); ออนไลน์มี 8 ข้อ (ฉบับ 159 + 214 + 246); DBD มี 6 ข้อ (ฉบับ 234)"
+      },
+      {
+        "id": "TOPIC_CERTIFICATE",
+        "type": "topic",
+        "label": "แบบใบทะเบียนภาษีมูลค่าเพิ่ม",
+        "description": "แบบ ภ.พ.20 สำหรับผู้เสียภาษีทั่วไปตาม ม.82/3; แบบ ภ.พ.21 สำหรับผู้เสียภาษีตาม ม.82/16; ออกเป็นรายสถานประกอบการ",
+        "current_rule": "ออก ภ.พ.20 ทุกช่องทางเป็นรายสถานประกอบการ"
+      },
+      {
+        "id": "TOPIC_EFFECTIVE_DATE",
+        "type": "topic",
+        "label": "วันที่มีผลเป็นผู้ประกอบการจดทะเบียน",
+        "description": "วันที่มีผลตามกฎหมาย: นับแต่วันที่เจ้าพนักงานรับคำขอ / สิทธิการใช้ใบคำขอ ภ.พ.01 ที่มีเลขที่อ้างอิงเป็นเสมือนใบทะเบียนชั่วคราว",
+        "current_rule": "Walk-in นับแต่วันรับคำขอ (ฉบับ 57); ออนไลน์และ DBD มีผลแต่วันยื่น ภ.พ.01 และพิมพ์ใบคำขอมีเลขอ้างอิงใช้แทนชั่วคราวได้"
+      },
+      {
+        "id": "TOPIC_AUTHORITY",
+        "type": "topic",
+        "label": "ผู้มีอำนาจออกใบทะเบียน",
+        "description": "เจ้าพนักงานผู้มีอำนาจลงนามอนุมัติ: (1) สรรพากรพื้นที่หรือผู้ที่มอบหมาย (2) ผู้อำนวยการกองบริหารภาษีธุรกิจขนาดใหญ่หรือผู้ที่มอบหมาย",
+        "current_rule": "ใช้ข้อความตามฉบับ 245 (Walk-in) และฉบับ 246 (ออนไลน์) / ฉบับ 234 (DBD)"
+      },
+      {
+        "id": "TOPIC_ONLINE_CONDO",
+        "type": "topic",
+        "label": "การจด VAT ออนไลน์สำหรับผู้ค้าออนไลน์ใช้คอนโด",
+        "description": "บุคคลธรรมดาสัญชาติไทย ขายของออนไลน์ ใช้ห้องชุดคอนโดเป็นที่ตั้งแห่งเดียว: ยื่นออนไลน์ทาง www.rd.go.th ได้วิธีเดียว, ไม่ต้องขอนิติคอนโด, ต้องอัปโหลดเอกสาร, ยินยอมให้แพลตฟอร์มส่งข้อมูล",
+        "current_rule": "บังคับใช้ตามฉบับ 245 (ข้อ 4/1) และฉบับ 246 (ข้อ 1, 5, 5/1, 6(8))"
+      },
+      {
+        "id": "TOPIC_DBD",
+        "type": "topic",
+        "label": "การจด VAT พร้อมจัดตั้งนิติบุคคลผ่าน DBD",
+        "description": "ช่องทาง Single Window ยื่นจดจัดตั้งบริษัทพร้อมจดทะเบียนภาษีมูลค่าเพิ่มที่กรมพัฒนาธุรกิจการค้า",
+        "current_rule": "บังคับใช้ตามฉบับ 234 (ตั้งแต่ 20 เม.ย. 2563)"
+      }
+    ],
+    "chunks_summary": {
+      "total_chunks": 75,
+      "source_files": [
+        "vat57_chunks_local_llm.json (13 chunks)",
+        "vat74_chunks_local_llm.json (9 chunks)",
+        "vat139_chunks_local_llm.json (3 chunks)",
+        "vat159_chunks_local_llm.json (13 chunks)",
+        "vat165_chunks_local_llm.json (6 chunks)",
+        "vat214_chunks_local_llm.json (7 chunks)",
+        "vat215_chunks_local_llm.json (3 chunks)",
+        "vat234_chunks_local_llm.json (10 chunks)",
+        "vat245_chunks_local_llm.json (3 chunks)",
+        "vat246_chunks_local_llm.json (8 chunks)"
+      ]
+    }
+  },
+  "edges": {
+    "amendment_chain": [
+      {
+        "source": "ANN_74",
+        "target": "ANN_57",
+        "relation": "AMENDS",
+        "description": "ฉบับ 74 ยกเลิกข้อ 4 เดิม และเพิ่มข้อ 5-10 ในฉบับ 57",
+        "sections": [
+          "ข้อ 4",
+          "ข้อ 5",
+          "ข้อ 6",
+          "ข้อ 7",
+          "ข้อ 8",
+          "ข้อ 9",
+          "ข้อ 10"
+        ]
+      },
+      {
+        "source": "ANN_139",
+        "target": "ANN_57",
+        "relation": "AMENDS",
+        "description": "ฉบับ 139 แก้ไขข้อ 4 วรรคหนึ่ง และข้อ 9 ในฉบับ 57",
+        "sections": [
+          "ข้อ 4",
+          "ข้อ 9"
+        ]
+      },
+      {
+        "source": "ANN_139",
+        "target": "ANN_74",
+        "relation": "SUPERSEDES_PARTIAL",
+        "description": "แทนที่ข้อ 4 วรรคหนึ่ง และข้อ 9 ของฉบับ 74"
+      },
+      {
+        "source": "ANN_165",
+        "target": "ANN_57",
+        "relation": "AMENDS",
+        "description": "ฉบับ 165 เพิ่มข้อ 4(3) สำนักบริหารภาษีธุรกิจขนาดใหญ่, แทนที่ข้อ 5 และข้อ 9 ในฉบับ 57",
+        "sections": [
+          "ข้อ 4(3)",
+          "ข้อ 5",
+          "ข้อ 9"
+        ]
+      },
+      {
+        "source": "ANN_165",
+        "target": "ANN_139",
+        "relation": "SUPERSEDES_PARTIAL",
+        "description": "แทนที่ข้อ 9 ของฉบับ 139 (เพิ่ม ผอ.สำนักบริหารภาษีธุรกิจขนาดใหญ่)"
+      },
+      {
+        "source": "ANN_215",
+        "target": "ANN_57",
+        "relation": "AMENDS",
+        "description": "ฉบับ 215 แก้ไขข้อ 5(2) (คู่สมรส) และข้อ 5(5)(ก) (ป้ายชื่อ+หนังสือรับรองคอนโด) ในฉบับ 57",
+        "sections": [
+          "ข้อ 5(2)",
+          "ข้อ 5(5)(ก)"
+        ]
+      },
+      {
+        "source": "ANN_215",
+        "target": "ANN_165",
+        "relation": "SUPERSEDES_PARTIAL",
+        "description": "แทนที่ข้อ 5(2) และข้อ 5(5)(ก) ของฉบับ 165"
+      },
+      {
+        "source": "ANN_245",
+        "target": "ANN_57",
+        "relation": "AMENDS",
+        "description": "ฉบับ 245 เพิ่มข้อ 4/1 (ค้าออนไลน์คอนโด) และแทนที่ข้อ 9 (ผอ.กองบริหารภาษีธุรกิจขนาดใหญ่) ในฉบับ 57",
+        "sections": [
+          "ข้อ 4/1",
+          "ข้อ 9"
+        ]
+      },
+      {
+        "source": "ANN_245",
+        "target": "ANN_165",
+        "relation": "SUPERSEDES_PARTIAL",
+        "description": "แทนที่ข้อ 9 ของฉบับ 165 (เปลี่ยน สำนักบริหารฯ เป็น กองบริหารฯ)"
+      },
+      {
+        "source": "ANN_214",
+        "target": "ANN_159",
+        "relation": "AMENDS",
+        "description": "ฉบับ 214 แทนที่ข้อ 5, เพิ่มข้อ 6(7), แทนที่ข้อ 8 และข้อ 9 ในฉบับ 159 (ออนไลน์)",
+        "sections": [
+          "ข้อ 5",
+          "ข้อ 6(7)",
+          "ข้อ 8",
+          "ข้อ 9"
+        ]
+      },
+      {
+        "source": "ANN_246",
+        "target": "ANN_159",
+        "relation": "AMENDS",
+        "description": "ฉบับ 246 เพิ่มวรรคสองข้อ 1, แทนที่ข้อ 5, เพิ่มข้อ 5/1, เพิ่มข้อ 6(8), แทนที่ข้อ 9 ในฉบับ 159",
+        "sections": [
+          "ข้อ 1",
+          "ข้อ 5",
+          "ข้อ 5/1",
+          "ข้อ 6(8)",
+          "ข้อ 9"
+        ]
+      },
+      {
+        "source": "ANN_246",
+        "target": "ANN_214",
+        "relation": "SUPERSEDES_PARTIAL",
+        "description": "แทนที่ข้อ 5 และข้อ 9 ของฉบับ 214"
+      },
+      {
+        "source": "ANN_245",
+        "target": "ANN_159",
+        "relation": "CROSS_REFERENCE",
+        "description": "ข้อ 4/1 ในฉบับ 57 อ้างอิงให้ไปยื่นคำขอจดทะเบียนผ่านอินเทอร์เน็ตตามหลักเกณฑ์ของฉบับ 159"
+      }
+    ],
+    "topic_membership": [
+      {
+        "source": "VAT57_ART_01",
+        "target": "TOPIC_TIMING",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT57_ART_02",
+        "target": "TOPIC_TIMING",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT57_ART_03",
+        "target": "TOPIC_TIMING",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT159_ART_02",
+        "target": "TOPIC_TIMING",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT159_ART_03",
+        "target": "TOPIC_TIMING",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT159_ART_04",
+        "target": "TOPIC_TIMING",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT234_ART_02",
+        "target": "TOPIC_TIMING",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT234_ART_03",
+        "target": "TOPIC_TIMING",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT57_ART_04",
+        "target": "TOPIC_LOCATION",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT57_ART_04_1",
+        "target": "TOPIC_LOCATION",
+        "channel": "Walk-in/Online"
+      },
+      {
+        "source": "VAT74_ART_04",
+        "target": "TOPIC_LOCATION",
+        "channel": "Walk-in (ประวัติเก่า)"
+      },
+      {
+        "source": "VAT139_ART_01",
+        "target": "TOPIC_LOCATION",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT159_ART_01",
+        "target": "TOPIC_LOCATION",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT165_ART_01",
+        "target": "TOPIC_LOCATION",
+        "channel": "Walk-in LTO"
+      },
+      {
+        "source": "VAT234_ART_01",
+        "target": "TOPIC_LOCATION",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT245_ART_01",
+        "target": "TOPIC_LOCATION",
+        "channel": "Online Condo"
+      },
+      {
+        "source": "VAT246_ART_01",
+        "target": "TOPIC_LOCATION",
+        "channel": "Online Mandatory"
+      },
+      {
+        "source": "VAT57_ART_05_A",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT57_ART_05_B",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT74_ART_05_A",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Walk-in (ประวัติเก่า)"
+      },
+      {
+        "source": "VAT74_ART_05_B",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Walk-in (ประวัติเก่า)"
+      },
+      {
+        "source": "VAT159_ART_05_A",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT159_ART_05_B",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT165_ART_02_A",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT165_ART_02_B",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT214_ART_01_A",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Online (ประวัติเก่า)"
+      },
+      {
+        "source": "VAT214_ART_01_B",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT215_ART_01",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Walk-in (ปัจจุบัน: คู่สมรส)"
+      },
+      {
+        "source": "VAT234_ART_04",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT246_ART_02_A",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Online (ปัจจุบัน)"
+      },
+      {
+        "source": "VAT246_ART_02_B",
+        "target": "TOPIC_DOCUMENTS",
+        "channel": "Online (ปัจจุบัน)"
+      },
+      {
+        "source": "VAT57_ART_05_C",
+        "target": "TOPIC_PREMISES",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT74_ART_05_C",
+        "target": "TOPIC_PREMISES",
+        "channel": "Walk-in (ประวัติเก่า)"
+      },
+      {
+        "source": "VAT159_ART_05_C",
+        "target": "TOPIC_PREMISES",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT165_ART_02_C",
+        "target": "TOPIC_PREMISES",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT214_ART_01_C",
+        "target": "TOPIC_PREMISES",
+        "channel": "Online (ประวัติเก่า)"
+      },
+      {
+        "source": "VAT215_ART_02",
+        "target": "TOPIC_PREMISES",
+        "channel": "Walk-in (ปัจจุบัน: คอนโดต้องขอนิติ)"
+      },
+      {
+        "source": "VAT234_ART_ATTACHMENT",
+        "target": "TOPIC_PREMISES",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT246_ART_02_C",
+        "target": "TOPIC_PREMISES",
+        "channel": "Online (ปัจจุบัน: ยกเว้นนิติคอนโดให้นักขายออนไลน์)"
+      },
+      {
+        "source": "VAT57_ART_06",
+        "target": "TOPIC_REJECTION",
+        "channel": "Walk-in (6 เหตุผล)"
+      },
+      {
+        "source": "VAT74_ART_06",
+        "target": "TOPIC_REJECTION",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT159_ART_06",
+        "target": "TOPIC_REJECTION",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT214_ART_02",
+        "target": "TOPIC_REJECTION",
+        "channel": "Online (เพิ่มเหตุที่ 7)"
+      },
+      {
+        "source": "VAT234_ART_05",
+        "target": "TOPIC_REJECTION",
+        "channel": "DBD (6 เหตุผล)"
+      },
+      {
+        "source": "VAT246_ART_04",
+        "target": "TOPIC_REJECTION",
+        "channel": "Online (เพิ่มเหตุที่ 8: ไม่อัปโหลด)"
+      },
+      {
+        "source": "VAT57_ART_07",
+        "target": "TOPIC_CERTIFICATE",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT74_ART_07",
+        "target": "TOPIC_CERTIFICATE",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT159_ART_07",
+        "target": "TOPIC_CERTIFICATE",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT234_ART_06",
+        "target": "TOPIC_CERTIFICATE",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT57_ART_08",
+        "target": "TOPIC_EFFECTIVE_DATE",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT74_ART_08",
+        "target": "TOPIC_EFFECTIVE_DATE",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT159_ART_08",
+        "target": "TOPIC_EFFECTIVE_DATE",
+        "channel": "Online (ภ.พ.01 แทนชั่วคราว)"
+      },
+      {
+        "source": "VAT214_ART_03",
+        "target": "TOPIC_EFFECTIVE_DATE",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT234_ART_07",
+        "target": "TOPIC_EFFECTIVE_DATE",
+        "channel": "DBD (พิมพ์คำขอแทนชั่วคราว)"
+      },
+      {
+        "source": "VAT57_ART_09",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT74_ART_09",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT139_ART_02",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT159_ART_09",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT165_ART_03",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Walk-in"
+      },
+      {
+        "source": "VAT214_ART_04",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT234_ART_08",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT245_ART_02",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Walk-in (ปัจจุบัน)"
+      },
+      {
+        "source": "VAT246_ART_05",
+        "target": "TOPIC_AUTHORITY",
+        "channel": "Online (ปัจจุบัน)"
+      },
+      {
+        "source": "VAT57_ART_04_1",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "เพิ่มในฉบับ 57"
+      },
+      {
+        "source": "VAT159_ART_05_C",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT159_ART_05_1",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "Online"
+      },
+      {
+        "source": "VAT245_ART_01",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "เพิ่มข้อ 4/1"
+      },
+      {
+        "source": "VAT246_ART_01",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "ยื่นออนไลน์ได้วิธีเดียว"
+      },
+      {
+        "source": "VAT246_ART_02_C",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "ยกเว้นหนังสือรับรองนิติบุคคลคอนโด"
+      },
+      {
+        "source": "VAT246_ART_03",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "ยินยอมแพลตฟอร์มส่งข้อมูล"
+      },
+      {
+        "source": "VAT246_ART_04",
+        "target": "TOPIC_ONLINE_CONDO",
+        "channel": "ไม่อัปโหลดเอกสารถูกปฏิเสธ"
+      },
+      {
+        "source": "VAT234_ART_01",
+        "target": "TOPIC_DBD",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT234_ART_02",
+        "target": "TOPIC_DBD",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT234_ART_03",
+        "target": "TOPIC_DBD",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT234_ART_04",
+        "target": "TOPIC_DBD",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT234_ART_05",
+        "target": "TOPIC_DBD",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT234_ART_07",
+        "target": "TOPIC_DBD",
+        "channel": "DBD"
+      },
+      {
+        "source": "VAT234_ART_ATTACHMENT",
+        "target": "TOPIC_DBD",
+        "channel": "DBD"
+      }
+    ],
+    "legal_evolution_lineage": [
+      {
+        "issue": "สถานที่ยื่นคำขอจดทะเบียน (ข้อ 4)",
+        "channel": "Walk-in",
+        "chronology": [
+          {
+            "version": "ฉบับที่ 57 (ปี 2537)",
+            "rule": "สรรพากรเขต/อำเภอ"
+          },
+          {
+            "version": "ฉบับที่ 74 (ปี 2538)",
+            "rule": "สำนักงานสรรพากรเขต หรือสำนักงานภาษีสรรพากรพื้นที่ / สรรพากรอำเภอ"
+          },
+          {
+            "version": "ฉบับที่ 139 (ปี 2545)",
+            "rule": "กทม. ยื่น ณ สำนักงานสรรพากรพื้นที่หรือสาขา / ต่างจังหวัด ยื่น ณ สำนักงานสรรพากรพื้นที่สาขา"
+          },
+          {
+            "version": "ฉบับที่ 165 (ปี 2549)",
+            "rule": "เพิ่ม (3) ธุรกิจขนาดใหญ่ ยื่น ณ สำนักบริหารภาษีธุรกิจขนาดใหญ่"
+          },
+          {
+            "version": "ฉบับที่ 245 (ปี 2565)",
+            "rule": "เพิ่มข้อ 4/1 ผู้ค้าออนไลน์สัญชาติไทยใช้คอนโด ยื่นผ่านอินเทอร์เน็ต www.rd.go.th"
+          }
+        ],
+        "active_law_chunks": [
+          "VAT139_ART_01",
+          "VAT165_ART_01",
+          "VAT245_ART_01"
+        ]
+      },
+      {
+        "issue": "เอกสารจดทะเบียนบุคคลธรรมดาและคณะบุคคล (ข้อ 5(1)-(2))",
+        "channel": "Walk-in",
+        "chronology": [
+          {
+            "version": "ฉบับที่ 74 (ปี 2538)",
+            "rule": "บุคคลธรรมดาแนบบัตรประชาชนและบัตรผู้เสียภาษี / คณะบุคคลแนบหนังสือจัดตั้ง"
+          },
+          {
+            "version": "ฉบับที่ 165 (ปี 2549)",
+            "rule": "ปรับเอกสารคนต่างด้าว (ใบอนุญาต พาสปอร์ต ใบสำคัญคนต่างด้าว)"
+          },
+          {
+            "version": "ฉบับที่ 215 (ปี 2560)",
+            "rule": "เพิ่มระบุ 'คู่สมรสสามีและภริยา' ต้องแนบภาพถ่ายใบทะเบียนสมรส หรือหนังสือจัดตั้งคณะบุคคล"
+          }
+        ],
+        "active_law_chunks": [
+          "VAT165_ART_02_A",
+          "VAT215_ART_01"
+        ]
+      },
+      {
+        "issue": "เอกสารสถานที่ตั้ง อาคารชุด คอนโดมิเนียม (ข้อ 5(5)(ก) และ ข้อ 5(4))",
+        "channel": "ทุกช่องทาง",
+        "chronology": [
+          {
+            "version": "ฉบับที่ 165 (ปี 2549)",
+            "rule": "ติดป้ายชื่อสถานประกอบการ + สัญญาเช่า/ยินยอม + แผนที่สังเขป"
+          },
+          {
+            "version": "ฉบับที่ 215 (ปี 2560)",
+            "rule": "กรณีตั้งในอาคารชุด ต้องมีหนังสือรับรองจากนิติบุคคลอาคารชุดว่าเป็นพื้นที่ประกอบการค้า"
+          },
+          {
+            "version": "ฉบับที่ 246 (ปี 2565)",
+            "rule": "ยกเว้นให้นักขายออนไลน์บุคคลธรรมดาสัญชาติไทยตามข้อ 5(1)(ก) 'ไม่ต้องมีหนังสือรับรองนิติบุคคลอาคารชุด'"
+          }
+        ],
+        "active_law_chunks": [
+          "VAT215_ART_02",
+          "VAT246_ART_02_C"
+        ]
+      },
+      {
+        "issue": "ผู้มีอำนาจออกใบทะเบียนภาษีมูลค่าเพิ่ม (ข้อ 9)",
+        "channel": "ทุกช่องทาง",
+        "chronology": [
+          {
+            "version": "ฉบับที่ 74 (ปี 2538)",
+            "rule": "สรรพากรพื้นที่ และ สรรพากรจังหวัด"
+          },
+          {
+            "version": "ฉบับที่ 139 (ปี 2545)",
+            "rule": "สรรพากรพื้นที่"
+          },
+          {
+            "version": "ฉบับที่ 165 (ปี 2549)",
+            "rule": "สรรพากรพื้นที่ และ ผู้อำนวยการสำนักบริหารภาษีธุรกิจขนาดใหญ่"
+          },
+          {
+            "version": "ฉบับที่ 214 (ปี 2560)",
+            "rule": "สรรพากรพื้นที่หรือผู้ที่มอบหมาย และ ผู้อำนวยการสำนักบริหารภาษีธุรกิจขนาดใหญ่หรือผู้ที่มอบหมาย"
+          },
+          {
+            "version": "ฉบับที่ 245 & 246 (ปี 2565)",
+            "rule": "สรรพากรพื้นที่หรือผู้ที่มอบหมาย และ 'ผู้อำนวยการกองบริหารภาษีธุรกิจขนาดใหญ่' หรือผู้ที่มอบหมาย"
+          }
+        ],
+        "active_law_chunks": [
+          "VAT245_ART_02",
+          "VAT246_ART_05",
+          "VAT234_ART_08"
+        ]
+      },
+      {
+        "issue": "เหตุผลที่สรรพากรไม่ออกใบทะเบียน (ข้อ 6)",
+        "channel": "ออนไลน์",
+        "chronology": [
+          {
+            "version": "ฉบับที่ 159 (ปี 2547)",
+            "rule": "6 เหตุผล (ข้อมูลเท็จ, ตัวแทนเชิด, ไม่มีสถานที่จริง, สนง.บัญชี, ไม่ทำจริง, เคยถูกเพิกถอน)"
+          },
+          {
+            "version": "ฉบับที่ 214 (ปี 2560)",
+            "rule": "เพิ่มเหตุผลที่ (7) ไม่แสดงหรือไม่นำส่งเอกสารหลักฐานตามที่เจ้าหน้าที่ร้องขอ"
+          },
+          {
+            "version": "ฉบับที่ 246 (ปี 2565)",
+            "rule": "เพิ่มเหตุผลที่ (8) ผู้ค้าออนไลน์ไม่อัปโหลดเอกสาร หรือไม่ส่งเอกสารที่ขาดตามที่ร้องขอ"
+          }
+        ],
+        "active_law_chunks": [
+          "VAT159_ART_06",
+          "VAT214_ART_02",
+          "VAT246_ART_04"
+        ]
+      }
+    ]
+  },
+  "retrieval_routing_policy": {
+    "step_1_intent_detection": "จับคู่วัตถุประสงค์คำถามเข้ากับ Topic ID",
+    "step_2_channel_filter": "ตรวจว่าผู้ใช้ต้องการยื่นแบบใด: ยื่นด้วยตนเอง (Walk-in), ออนไลน์ (Online), หรือ จดพร้อมตั้งบริษัท (DBD)",
+    "step_3_graph_traversal": "วิ่งตาม Lineage เพื่อเลือก Active Law Chunks ล่าสุดเท่านั้น ป้องกันการนำกฎหมายเก่าที่ถูกยกเลิกไปตอบ",
+    "step_4_context_assembly": "ประกอบ Prompt จาก Primary Active Chunks + Supporting Chunks รวมไม่เกิน 3 Chunks ส่งเข้า LLM"
+  }
+}

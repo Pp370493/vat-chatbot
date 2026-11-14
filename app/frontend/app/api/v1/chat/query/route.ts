@@ -1,0 +1,363 @@
+import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
+
+// Standalone fallback classifier & responder for Vercel demo testing
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const rawText = (body.text || "").trim();
+    const textLower = rawText.toLowerCase();
+
+    // 1. Check if external live backend is reachable
+    const backendUrl =
+      process.env.BACKEND_API_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : undefined);
+    if (backendUrl) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout for backend
+        const res = await fetch(`${backendUrl}/api/v1/chat/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          return NextResponse.json(data);
+        }
+      } catch (err) {
+        console.warn("Backend proxy failed or timed out, using standalone Vercel engine:", err);
+      }
+    }
+
+    // 2. Standalone Out-of-Scope Topics Router (สอดคล้องกับ Agent 1 & Agent 2 - ลำดับความสำคัญสูงสุด)
+    const oosTopics = [
+      {
+        topic: "ภาษีเงินได้บุคคลธรรมดา (ภ.ง.ด.90 / ภ.ง.ด.91)",
+        keywords: ["ภ.ง.ด.90", "ภ.ง.ด.91", "ภ.ง.ด.94", "ภงด90", "ภงด91", "ภงด94", "เงินได้บุคคลธรรมดา", "ภาษีเงินได้", "ลดหย่อนภาษี", "ลดหย่อน", "เงินเดือน"],
+        advice:
+          "การยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดาประจำปี สามารถยื่นแบบกระดาษได้ภายใน 31 มีนาคม หรือยื่นผ่านอินเทอร์เน็ตได้ถึง 8 เมษายนของทุกปี",
+        contact: "สายด่วน RD Intelligence Center โทร. 1161 หรือสำนักงานสรรพากรพื้นที่สาขา"
+      },
+      {
+        topic: "ภาษีเงินได้นิติบุคคล (ภ.ง.ด.50 / ภ.ง.ด.51)",
+        keywords: ["ภ.ง.ด.50", "ภ.ง.ด.51", "ภงด50", "ภงด51", "ภาษีเงินได้นิติบุคคล", "งบการเงิน", "กำไรสุทธิ"],
+        advice:
+          "การยื่นแบบภาษีเงินได้นิติบุคคลครึ่งปี (ภ.ง.ด.51) ภายใน 2 เดือนนับแต่วันสิ้นรอบ 6 เดือน และรอบปี (ภ.ง.ด.50) ภายใน 150 วันนับแต่วันสิ้นรอบระยะเวลาบัญชี",
+        contact: "สำนักงานสรรพากรพื้นที่ หรือระบบ e-Filing (โทร. 1161)"
+      },
+      {
+        topic: "การยื่นแบบแสดงรายการและชำระภาษีมูลค่าเพิ่ม (แบบ ภ.พ.30)",
+        keywords: [
+          "ยื่นแบบแสดงรายการภาษีมูลค่าเพิ่ม", "ยื่นแบบภาษีมูลค่าเพิ่ม", "ยื่นแบบ ภ.พ.30", "ยื่นแบบภพ30", "ยื่น ภ.พ.30", "ยื่นภพ30",
+          "ภ.พ.30", "ภพ30", "ภ.พ.36", "ภพ36", "ชำระภาษีมูลค่าเพิ่ม", "เสียภาษีมูลค่าเพิ่ม",
+          "ส่งแบบประจำเดือน", "ภาษีขายมากกว่าภาษีซื้อ", "ภาษีซื้อมากกว่าภาษีขาย", "เบี้ยปรับ", "เงินเพิ่ม"
+        ],
+        advice:
+          "การยื่นแบบแสดงรายการภาษีมูลค่าเพิ่ม (แบบ ภ.พ.30) ประจำเดือน เป็นหน้าที่ของผู้ประกอบการที่ได้จดทะเบียน VAT แล้ว ไม่ใช่ขั้นตอนการขอจดทะเบียนใหม่ โดยต้องยื่นและชำระภาษีเป็นรายเดือนภายในวันที่ 15 ของเดือนถัดไป (หรือยื่นผ่านระบบอินเทอร์เน็ต e-Filing ได้ถึงวันที่ 23 ของเดือนถัดไป)",
+        contact: "ระบบ e-Filing กรมสรรพากร (efiling.rd.go.th) หรือสำนักงานสรรพากรพื้นที่สาขา (โทร. 1161)"
+      },
+      {
+        topic: "การแจ้งการเปลี่ยนแปลงทะเบียนภาษีมูลค่าเพิ่ม (แบบ ภ.พ.09)",
+        keywords: [
+          "แจ้งการเปลี่ยนแปลง", "แจ้งเปลี่ยนแปลง", "เปลี่ยนแปลงข้อมูล", "แก้ไขข้อมูล",
+          "ภ.พ.09", "ภพ09", "ย้ายสถานประกอบการ", "ย้ายร้าน", "เปลี่ยนชื่อร้าน", "เปลี่ยนชื่อ",
+          "เปลี่ยนที่อยู่", "เพิ่มสาขา", "ปิดสาขา", "โอนกิจการ", "ควบกิจการ"
+        ],
+        advice:
+          "การแจ้งเปลี่ยนแปลงข้อมูลที่จดทะเบียนไว้ (เช่น ชื่อ, ที่ตั้ง, สาขา, กรรมการ) ไม่ใช่การขอจดทะเบียนภาษีมูลค่าเพิ่มใหม่ แต่ต้องยื่นคำขอแจ้งการเปลี่ยนแปลงตามแบบ ภ.พ.09 ภายใน 15 วันนับแต่วันที่มีการเปลี่ยนแปลงข้อมูล โดยยื่นผ่านระบบอินเทอร์เน็ตที่ www.rd.go.th หรือยื่น ณ สำนักงานสรรพากรพื้นที่/สาขาที่สถานประกอบการตั้งอยู่",
+        contact: "สำนักงานสรรพากรพื้นที่/สาขา หรือระบบ e-Registration ทาง www.rd.go.th (โทร. 1161)"
+      },
+      {
+        topic: "การขอคืนภาษีมูลค่าเพิ่ม (VAT Refund)",
+        keywords: ["ขอคืนภาษี", "ขอคืนเงินภาษี", "คืนภาษีมูลค่าเพิ่ม", "ขอคืน vat", "ตรวจคืน", "ค.10"],
+        advice:
+          "การขอคืนภาษีมูลค่าเพิ่ม สามารถแสดงความประสงค์ขอคืนเป็นเงินสดหรือเครดิตภาษีในแบบ ภ.พ.30 ประจำเดือน หรือยื่นคำร้องตามแบบ ค.10 ณ สำนักงานสรรพากรพื้นที่",
+        contact: "ฝ่ายกรรมวิธีและคืนภาษี สำนักงานสรรพากรพื้นที่ (โทร. 1161)"
+      },
+      {
+        topic: "การออกใบกำกับภาษี และ e-Tax Invoice",
+        keywords: ["ใบกำกับภาษี", "ออกใบกำกับ", "e-tax", "etax", "บ.อ.01", "บอ01"],
+        advice:
+          "การออกใบกำกับภาษีและการจัดทำ e-Tax Invoice เป็นระเบียบการค้าหลังการจดทะเบียน VAT สามารถศึกษาหลักเกณฑ์การจัดทำได้ที่ etax.rd.go.th",
+        contact: "กองนวัตกรรมและเทคโนโลยีสารสนเทศทางภาษี กรมสรรพากร (โทร. 1161)"
+      }
+    ];
+
+    for (const t of oosTopics) {
+      if (t.keywords.some((kw) => textLower.includes(kw))) {
+        return NextResponse.json({
+          query_id: `vercel-${Date.now()}`,
+          conversation_id: body.conversation_id || `conv-${Date.now()}`,
+          turn_number: 1,
+          type: "redirect",
+          payload: {
+            matched_topic: t.topic,
+            matched_via: "keyword",
+            department_id: null,
+            redirect_message:
+              `ข้อหารือนี้อยู่นอกขอบเขตงานการยื่นขอจดทะเบียนภาษีมูลค่าเพิ่ม (VAT Registration)\n` +
+              `โดยเป็นเรื่องเกี่ยวกับ: **${t.topic}**\n\n` +
+              `💡 **คำแนะนำ:**\n${t.advice}\n\n` +
+              `📞 **ช่องทางติดต่อ/ข้อมูลเพิ่มเติม:** ${t.contact}`,
+          },
+        });
+      }
+    }
+
+    // 3. ตรวจสอบความคลุมเครือของวัตถุประสงค์ (Purpose Ambiguity Check)
+    // หากถามเรื่อง "ยื่นเป็นกระดาษ" / "ยื่นกระดาษ" / "ยื่นออนไลน์" ณ สรรพากรพื้นที่ แต่ไม่ได้ระบุว่ายื่นเรื่อง "จดทะเบียน VAT (ภ.พ.01)" หรือเรื่องอื่น (ภ.พ.09, ภ.พ.30, ภ.ง.ด.)
+    // ต้องให้ผู้ประกอบการยืนยันวัตถุประสงค์ก่อนตอบเสมอ เพราะแบบอื่นๆ เช่น ภ.พ.09 หรือ ภ.พ.30 ก็ยื่นกระดาษได้เช่นกัน
+    const isGeneralFilingQuery = [
+      "กระดาษ", "อินเทอร์เน็ต", "อินเตอร์เน็ต", "เน็ต", "ออนไลน์", "online", "ยื่น", "ส่งแบบ", "เอกสาร",
+      "สรรพากร", "ต้องทำอย่างไร", "ทำอย่างไร", "ทำยังไง", "ขั้นตอน"
+    ].some((k) => textLower.includes(k));
+
+    const hasSpecificVatReg = [
+      "จด vat", "จดแวท", "จดทะเบียน vat", "จดทะเบียนภาษีมูลค่าเพิ่ม", "ขอจด vat", "ขอจดทะเบียน", "ขอจดแวท",
+      "ยื่นคำขอจดทะเบียน", "ยื่นขอจดทะเบียน", "ยื่นคำขอจด", "ขอเข้า vat", "เข้า vat", "เข้าแวท", "เข้าสู่ระบบ vat", "ขอเสีย vat", "ขอเสียภาษีมูลค่าเพิ่ม",
+      "ภ.พ.01", "ภพ01", "ภ.พ.20", "ภพ20", "ภ.พ.21", "ภพ21", "ใบทะเบียนภาษีมูลค่าเพิ่ม",
+      "จดทะเบียนล่วงหน้า", "จด vat ล่วงหน้า", "ขอ vat ล่วงหน้า", "ล่วงหน้า 6 เดือน", "ล่วงหน้าได้กี่เดือน",
+      "ก่อสร้างโรงงาน", "สร้างโรงงาน", "ก่อสร้างอาคาร", "สร้างอาคาร", "ติดตั้งเครื่องจักร", "สั่งซื้อเครื่องจักร", "ซื้อเครื่องจักร",
+      "ขายของออนไลน์ในคอนโด", "ขายของในห้องชุด", "คอนโด", "ห้องชุด", "ข้อ 5/1",
+      "นอมินี", "ตัวแทนเชิด", "แบล็กลิสต์",
+      "ฉบับที่ 57", "ฉบับ 57", "ฉบับที่ 159", "ฉบับ 159", "ฉบับที่ 234", "ฉบับ 234"
+    ].some((k) => textLower.includes(k));
+
+    if (isGeneralFilingQuery && !hasSpecificVatReg) {
+      return NextResponse.json({
+        query_id: `vercel-${Date.now()}`,
+        conversation_id: body.conversation_id || `conv-${Date.now()}`,
+        turn_number: 1,
+        type: "clarification",
+        payload: {
+          clarification_type: "purpose",
+          draft_text:
+            "การยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ มีหลายประเภทแบบแสดงรายการและคำขอ ซึ่งมีหลักเกณฑ์และเอกสารหลักฐานที่แตกต่างกันอย่างสิ้นเชิงค่ะ\n\n" +
+            "เนื่องจากระบบนี้เป็น **ระบบสนับสนุนงานจดทะเบียนภาษีมูลค่าเพิ่ม (แบบ ภ.พ.01)** โดยเฉพาะ เพื่อให้คำแนะนำและรายการเอกสารได้อย่างถูกต้องตรงประเด็น ขอสอบถามว่าท่านประสงค์จะยื่นแบบกระดาษในเรื่องใดคะ?\n\n" +
+            "1. 📄 **การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มใหม่ (แบบ ภ.พ.01)** *(ตามประกาศอธิบดีฯ ฉบับที่ 57)*\n" +
+            "2. 📝 **การแจ้งเปลี่ยนแปลงข้อมูลทะเบียนภาษีมูลค่าเพิ่ม (แบบ ภ.พ.09)** เช่น ย้ายที่ตั้ง, เปลี่ยนชื่อ, เพิ่มสาขา\n" +
+            "3. 📊 **การยื่นแบบแสดงรายการและชำระภาษีมูลค่าเพิ่มประจำเดือน (แบบ ภ.พ.30)**\n" +
+            "4. 💼 **การยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดา หรือ นิติบุคคล (ภ.ง.ด.)**",
+          citations: [],
+          relevant_articles: [],
+          is_clarification: true,
+          tier: "auto_answer",
+          trust_score: 1.0,
+        },
+      });
+    }
+
+    // 3. Standalone Risk Detection (Feedback Point 2)
+    const riskKeywords = [
+      "ตัวแทนเชิด", "นอมินี", "nominee", "ลูกจ้าง", "แบล็กลิสต์",
+      "ไม่มีสถานประกอบการ", "สำนักงานบัญชี", "สำนักงานกฎหมาย", "มิได้ประกอบกิจการ", "บิลปลอม", "เพิกถอน"
+    ];
+    const matchedRisks = riskKeywords.filter((kw) => textLower.includes(kw));
+    if (matchedRisks.length > 0) {
+      return NextResponse.json({
+        query_id: `vercel-${Date.now()}`,
+        conversation_id: body.conversation_id || `conv-${Date.now()}`,
+        turn_number: 1,
+        type: "pending_review",
+        payload: {
+          escalation_id: `esc-${Date.now()}`,
+          tier: "senior_review",
+          draft_text: "", // ซ่อนคำตอบตามกฎข้อ 2
+          citations: [],
+          relevant_articles: [], // ซ่อนข้อกฎหมายตามกฎข้อ 2
+          risk_factors: matchedRisks,
+          trust_score: 0.35,
+          estimated_wait_message: `คำถามนี้มีความเสี่ยงหรือประเด็นที่ต้องตรวจสอบ (${matchedRisks.join(", ")}) ระบบได้ส่งเข้าคิวตรวจสอบของหัวหน้างาน กรุณารอการอนุมัติ`,
+        },
+      });
+    }
+
+    // 4. Standalone Form Assistance (Agent 7)
+    if (["checklist", "เช็คลิสต์", "ตรวจเอกสาร", "ช่วยตรวจ", "ตรวจรับ"].some((kw) => textLower.includes(kw))) {
+      return NextResponse.json({
+        query_id: `vercel-${Date.now()}`,
+        conversation_id: body.conversation_id || `conv-${Date.now()}`,
+        turn_number: 1,
+        type: "form_assist",
+        payload: {
+          message: "เปิดระบบตัวช่วยตรวจสอบ Checklist เอกสารการยื่นขอจดทะเบียน VAT (Agent 7) ตามเกณฑ์ข้อ 5",
+          draft_text: "เปิดระบบตัวช่วยตรวจสอบ Checklist เอกสารการยื่นขอจดทะเบียน VAT (Agent 7) ตามเกณฑ์ข้อ 5",
+          tier: "auto_answer",
+          trust_score: 1.0,
+        },
+      });
+    }
+
+    // 5. กฎข้อ 1: ตรวจสอบความกำกวมของช่องทาง (Channel Ambiguity Check)
+    // ถ้าเป็นการจด VAT แล้ว บริบทไม่ครบว่าเป็นการจดด้วยกระดาษ (ประกาศ 57) หรือ ผ่านระบบอินเทอร์เน็ต (ประกาศ 159)
+    // ให้ถามก่อนแล้วค่อยตอบเสมอ เพื่อป้องกันการตอบผิดช่องทาง
+    const hasPaper = [
+      "กระดาษ", "ยื่นด้วยตนเอง", "เดินไปยื่น", "สรรพากรพื้นที่", "สำนักงานสรรพากร",
+      "ฉบับที่ 57", "ฉบับ 57", "ภ.พ.01 3 ฉบับ", "ภพ01 กระดาษ"
+    ].some((k) => textLower.includes(k));
+
+    const hasInternet = [
+      "อินเทอร์เน็ต", "อินเตอร์เน็ต", "เน็ต", "ออนไลน์", "online",
+      "rd.go.th", "ฉบับที่ 159", "ฉบับ 159", "คอนโด", "อาคารชุด", "แพลตฟอร์ม", "shopee", "lazada", "tiktok"
+    ].some((k) => textLower.includes(k));
+
+    const hasDbd = [
+      "dbd", "กรมพัฒนาธุรกิจ", "จัดตั้งบริษัท", "ฉบับที่ 234", "ฉบับ 234", "พร้อมจัดตั้ง"
+    ].some((k) => textLower.includes(k));
+
+    // ประเด็นเฉพาะที่ไม่ต้องแยกช่องทางเพราะหลักเกณฑ์เหมือนกันทุกช่องทาง หรือเป็นเอกเทศ
+    const isSelfContained = [
+      "ก่อสร้างโรงงาน", "สร้างโรงงาน", "ก่อสร้างอาคาร", "สร้างอาคาร", "ติดตั้งเครื่องจักร", "สั่งซื้อเครื่องจักร", "ซื้อเครื่องจักร",
+      "6 เดือน", "หกเดือน", "ล่วงหน้ากี่เดือน", "จดล่วงหน้า", "ขอแวทล่วงหน้า", "ขอ vat ล่วงหน้า", "ล่วงหน้าได้กี่เดือน", "จดทะเบียนล่วงหน้า",
+      "นอมินี", "ตัวแทนเชิด", "แบล็กลิสต์", "สวมชื่อ", "สำนักงานบัญชีบังหน้า", "สำนักงานทนายความ",
+      "ใครเซ็น", "เซ็นแทน", "ใครมีอำนาจ", "ผู้มีอำนาจลงนาม", "สรรพากรพื้นที่ลงนาม",
+      "มาตรา 81/3", "81/3", "สละสิทธิ"
+    ].some((k) => textLower.includes(k));
+
+    const isGeneralVatRegistrationInquiry = [
+      "จด vat", "จดแวท", "จดทะเบียน", "ยื่นคำขอ", "ขอจด", "เข้า vat", "เข้าแวท",
+      "ภ.พ.01", "ภพ01", "ภ.พ.20", "ภพ20", "เอกสาร", "หลักฐาน", "ใช้อะไร", "เตรียมอะไร",
+      "ที่ไหน", "สถานที่", "ช่องทาง", "ขั้นตอน", "วิธีการ", "จดยังไง", "ยื่นยังไง",
+      "ต้องทำอย่างไร", "ทำอย่างไร", "ทำยังไง"
+    ].some((k) => textLower.includes(k));
+
+    if (!hasPaper && !hasInternet && !hasDbd && !isSelfContained && isGeneralVatRegistrationInquiry) {
+      return NextResponse.json({
+        query_id: `vercel-${Date.now()}`,
+        conversation_id: body.conversation_id || `conv-${Date.now()}`,
+        turn_number: 1,
+        type: "clarification",
+        payload: {
+          draft_text:
+            "การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่ม (VAT) มีข้อกำหนด ขั้นตอน และเอกสารหลักฐานที่แตกต่างกันตามช่องทางการยื่นคำขอ\n\n" +
+            "เพื่อให้ดิฉันสรุปข้อมูลและรายการเอกสารได้อย่างถูกต้องตรงกับกรณีของท่าน ขอสอบถามว่าท่านประสงค์จะยื่นคำขอจดทะเบียนผ่านช่องทางหลักใดคะ?\n\n" +
+            "1. 📄 **ยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่** (ตามประกาศอธิบดีกรมสรรพากร ฉบับที่ 57)\n" +
+            "2. 🌐 **ยื่นผ่านระบบอินเทอร์เน็ตทาง www.rd.go.th** (ตามประกาศอธิบดีกรมสรรพากร ฉบับที่ 159)\n\n" +
+            "*(หมายเหตุ: กรณีต้องการยื่นพร้อมการขอจดทะเบียนจัดตั้งนิติบุคคลต่อกรมพัฒนาธุรกิจการค้า ให้ระบุคำว่า 'DBD' ในคำถามเพื่ออ้างอิงตามประกาศ ฉบับที่ 234 ค่ะ)*",
+          citations: [],
+          relevant_articles: [],
+          is_clarification: true,
+          tier: "auto_answer",
+          trust_score: 1.0,
+        },
+      });
+    }
+
+    // 5. Standalone In-Scope Answer (Matching 75 articles)
+    const jsonPath = path.join(process.cwd(), "data", "official_vat_articles.json");
+    let articles: any[] = [];
+    if (fs.existsSync(jsonPath)) {
+      articles = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    }
+
+    // กฎสำคัญ: กรองฉบับที่ 234 ออกทั้งหมด หากคำถามไม่มีคำว่า DBD
+    if (!hasDbd) {
+      articles = articles.filter((a) => !a.id.startsWith("VAT234_"));
+    }
+
+    // กรองตามช่องทาง (Paper vs Internet)
+    if (hasPaper) {
+      articles = articles.filter((a) =>
+        a.id.startsWith("VAT57_") ||
+        a.id.startsWith("VAT74_") ||
+        a.id.startsWith("VAT139_") ||
+        a.id.startsWith("VAT165_") ||
+        a.id.startsWith("VAT215_") ||
+        a.id.startsWith("VAT245_")
+      );
+    } else if (hasInternet) {
+      articles = articles.filter((a) =>
+        a.id.startsWith("VAT159_") ||
+        a.id.startsWith("VAT214_") ||
+        a.id.startsWith("VAT246_")
+      );
+    }
+
+    // Simple keyword score match for fallback
+    let bestArticle = articles[0];
+    let maxMatches = -1;
+    for (const art of articles) {
+      const artText = (art.content + " " + art.title + " " + (art.metadata?.boost_keywords || []).join(" ")).toLowerCase();
+      let matches = 0;
+      const words = rawText.split(/\s+/);
+      for (const w of words) {
+        if (w.length > 2 && artText.includes(w.toLowerCase())) {
+          matches++;
+        }
+      }
+      if (matches > maxMatches) {
+        maxMatches = matches;
+        bestArticle = art;
+      }
+    }
+
+    const relevantArticles = bestArticle
+      ? [
+          {
+            id: bestArticle.id,
+            section: bestArticle.source_section,
+            title: bestArticle.title,
+            content: bestArticle.content,
+          },
+        ]
+      : [];
+
+    // กฎข้อ 2: คำตอบที่ผ่าน LLM/ระบบตอบ ต้องเป็นคำตอบที่สรุป สั้นกระชับ อ่านรู้เรื่อง จบประโยคสมบูรณ์
+    let synthesizedAnswer = "";
+    if (isSelfContained && (textLower.includes("โรงงาน") || textLower.includes("ล่วงหน้า") || textLower.includes("เครื่องจักร"))) {
+      synthesizedAnswer =
+        "ตามหลักเกณฑ์การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มก่อนวันเริ่มประกอบกิจการ (ล่วงหน้า):\n\n" +
+        "• **ระยะเวลาที่ยื่นได้:** สามารถยื่นคำขอจดทะเบียนล่วงหน้าได้ไม่เกิน **6 เดือน** ก่อนวันเริ่มประกอบกิจการ\n" +
+        "• **เงื่อนไข:** ต้องมีแผนงานพิสูจน์ได้ว่าเตรียมการประกอบกิจการ และมีเหตุให้ต้องซื้อสินค้าหรือรับบริการ เช่น ก่อสร้างโรงงาน ก่อสร้างอาคารสำนักงาน หรือสั่งซื้อ/ติดตั้งเครื่องจักร\n" +
+        "• **การอ้างอิง:** ตามประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ 57) ข้อ 1 หรือ (ฉบับที่ 159) ข้อ 2";
+    } else if (hasPaper) {
+      synthesizedAnswer =
+        `ตามหลักเกณฑ์การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มแบบกระดาษ (ประกาศอธิบดีฯ ฉบับที่ 57):\n\n` +
+        `• **แบบฟอร์มและสถานที่ยื่น:** ใช้คำขอแบบ ภ.พ.01 จำนวน 3 ฉบับ ยื่น ณ สำนักงานสรรพากรพื้นที่หรือสำนักงานสรรพากรพื้นที่สาขา ในเขตท้องที่ที่สถานประกอบการตั้งอยู่\n` +
+        `• **เอกสารหลักฐานสำคัญ (ข้อ 5):** ทะเบียนบ้านและสัญญาเช่าสถานประกอบการ, บัตรประจำตัวประชาชน, แผนที่ตั้งและภาพถ่ายสถานประกอบการ พร้อมหนังสือยินยอมให้ใช้สถานที่ (ถ้ามี)\n` +
+        `• **การดำเนินการ:** จัดเตรียมคำขอ ภ.พ.01 และเอกสารหลักฐานตัวจริงพร้อมสำเนาเพื่อยื่นต่อเจ้าหน้าที่สรรพากรพื้นที่`;
+    } else if (hasInternet) {
+      synthesizedAnswer =
+        `ตามหลักเกณฑ์การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มผ่านระบบอินเทอร์เน็ต (ประกาศอธิบดีฯ ฉบับที่ 159):\n\n` +
+        `• **ช่องทางการยื่น:** ยื่นคำขอตามแบบ ภ.พ.01 ผ่านเว็บไซต์กรมสรรพากร www.rd.go.th ได้ตลอด 24 ชั่วโมง\n` +
+        `• **กรณีขายของออนไลน์ในคอนโด (ข้อ 1 / ข้อ 5):** ต้องยื่นผ่านอินเทอร์เน็ตทางเดียวเท่านั้น แนบใบทะเบียนพาณิชย์อิเล็กทรอนิกส์ และเอกสารกรรมสิทธิ์ห้องชุด โดย *ไม่ต้องใช้หนังสือรับรองจากนิติบุคคลอาคารชุด*\n` +
+        `• **สิทธิพิเศษ:** สามารถใช้คำขอ ภ.พ.01 ออนไลน์ที่มีเลขที่อ้างอิง เสมือนเป็นใบทะเบียนภาษีมูลค่าเพิ่มได้ชั่วคราวระหว่างรอรับใบทะเบียน ภ.พ.20 ตัวจริง`;
+    } else if (hasDbd) {
+      synthesizedAnswer =
+        `ตามหลักเกณฑ์การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มพร้อมการจัดตั้งนิติบุคคล (ประกาศอธิบดีฯ ฉบับที่ 234):\n\n` +
+        `• **ช่องทางการยื่น:** ยื่นผ่านระบบ DBD e-Registration ของกรมพัฒนาธุรกิจการค้าพร้อมคำขอจดทะเบียนจัดตั้งบริษัท\n` +
+        `• **ผลทางกฎหมาย:** ให้ถือว่าเป็นการยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มต่อกรมสรรพากรในวันเดียวกัน โดยต้องแนบข้อมูลสถานประกอบการและยินยอมตามเงื่อนไข`;
+    } else {
+      // สรุปเนื้อหาจาก Best Article ให้อ่านง่าย จบประโยคสมบูรณ์
+      synthesizedAnswer =
+        `ตามหลักเกณฑ์${bestArticle?.title || "การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่ม"} (${bestArticle?.source_section || "ประกาศอธิบดีฯ VAT"}):\n\n` +
+        `• **สาระสำคัญ:** ${bestArticle?.content?.replace(/\s+/g, " ")?.slice(0, 220) || ""}...\n` +
+        `• **ข้อปฏิบัติ:** ให้ผู้ประกอบการจัดเตรียมคำขอและเอกสารหลักฐานให้ครบถ้วนถูกต้องตามที่กฎหมายกำหนด`;
+    }
+
+    return NextResponse.json({
+      query_id: `vercel-${Date.now()}`,
+      conversation_id: body.conversation_id || `conv-${Date.now()}`,
+      turn_number: 1,
+      type: "answer",
+      payload: {
+        draft_text: synthesizedAnswer,
+        citations: bestArticle
+          ? [{ text_span: bestArticle.source_section, source_section: bestArticle.source_section }]
+          : [],
+        relevant_articles: relevantArticles,
+        tier: "auto_answer",
+        trust_score: 0.95,
+        confidence_score: 0.92,
+        answer_summary: bestArticle?.title || "สรุปสาระสำคัญตามกฎหมาย",
+      },
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
