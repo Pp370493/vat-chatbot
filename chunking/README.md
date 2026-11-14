@@ -17,6 +17,17 @@
 | `batch_qa_audit_log.jsonl` | log ผลรัน batch Q&A |
 | `agents/` | ต้นแบบ 8 agents + `orchestrator_pipeline.py` (lexical search, ไม่ใช้ LLM) |
 
+## ตรวจคุณภาพข้อมูล
+
+```bash
+python chunking/scripts/validate_chunks.py          # รายงานอ่านง่าย
+python chunking/scripts/validate_chunks.py --json   # JSON
+```
+
+ตรวจ schema, chunk ID ที่ dictionary/graph/agents อ้างถึง, title ตรงกับตัวบท, เลขไทย/อารบิก,
+ประกาศที่ถูกอ้างถึงแต่ไม่มีในชุดข้อมูล, คุณภาพ keyword และ chunk ท้ายประกาศ
+(exit code 1 ถ้ามี ERROR) — ผลล่าสุดอยู่ที่ [`reports/validation_report.txt`](reports/validation_report.txt)
+
 ## รันต้นแบบ
 
 ```bash
