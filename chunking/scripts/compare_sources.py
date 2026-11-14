@@ -2,7 +2,7 @@
 """
 เทียบตัวบทใน chunk (official_raw_text) กับไฟล์ต้นฉบับ PDF ของประกาศแต่ละฉบับ
 
-ต้นฉบับอยู่ที่ chunking/sources/dgvat{N}.pdf ดึงข้อความด้วย `pdftotext` (poppler-utils)
+ต้นฉบับอยู่ที่ chunking/sources/dgvat{N}.pdf (ดึงข้อความด้วย `pdftotext` จาก poppler-utils) หรือ .docx
 ฉบับที่เป็นภาพสแกน (ไม่มีชั้นข้อความ) ใส่ข้อความที่ถอดเองไว้ที่ chunking/sources/dgvat{N}.txt ได้
 
 การเทียบใช้ "โครงข้อความ": ตัดช่องว่าง เครื่องหมายคำพูด/วรรคตอน วรรณยุกต์/สระบน-ล่าง และอักขระ Private Use
@@ -49,10 +49,22 @@ def skeleton(text: str) -> str:
     return GAZETTE_NOISE.sub("", t)
 
 
+def docx_text(path: str) -> str:
+    """ข้อความจาก .docx (อ่าน word/document.xml โดยตรง ไม่ต้องติดตั้งไลบรารีเพิ่ม)"""
+    import html
+    import zipfile
+    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+    paras = re.findall(r"<w:p[ >].*?</w:p>", xml, re.S)
+    return "\n".join(html.unescape("".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p))) for p in paras)
+
+
 def source_text(n: str) -> str | None:
     txt = os.path.join(SRC, f"dgvat{n}.txt")
     if os.path.exists(txt):
         return open(txt, encoding="utf-8").read()
+    docx = os.path.join(SRC, f"dgvat{n}.docx")
+    if os.path.exists(docx):
+        return docx_text(docx)
     pdf = os.path.join(SRC, f"dgvat{n}.pdf")
     if not os.path.exists(pdf):
         return None
