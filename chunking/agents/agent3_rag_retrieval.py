@@ -15,6 +15,8 @@ Agent 3: RAG Retrieval Agent (Graph-Enhanced Hybrid Search)
   เช่น "ประกาศฯ (ฉบับที่ 57) ข้อ 9 ซึ่งแก้ไขเพิ่มเติมโดยฉบับที่ 74, 139, 165, 245"
 mode="all" = พฤติกรรมเดิม (ค้นทั้ง 75 chunks) เก็บไว้ใช้เปรียบเทียบผล
 metadata.role/amended_by มาจาก scripts/annotate_roles.py
+ข้อมูลประกอบที่ไม่มีในตัวบท 57/159 (เช่น รายการกิจการตาม ม.81/3 ในแบบคำขอฉบับ 234) แนบท้าย context ผ่าน
+REFERENCE_SNIPPETS เมื่อคำถามตรงหัวข้อ โดยไม่เข้าไปแข่งอันดับกับตัวบทหลัก
 """
 
 import os
@@ -25,6 +27,25 @@ from typing import List, Dict, Any, Tuple
 DBD_TRIGGERS = ["dbd", "กรมพัฒนาธุรกิจ", "จดพร้อมตั้งบริษัท", "พร้อมจัดตั้ง", "จัดตั้งบริษัท",
                 "เปิดบริษัทพร้อม", "e-registration", "ฉบับที่ 234", "ฉบับ 234"]
 ANNOUNCEMENT_LABEL = {"57": "ยื่นแบบกระดาษ", "159": "ยื่นผ่านอินเทอร์เน็ต", "234": "ยื่นผ่าน DBD"}
+
+# เอกสารอ้างอิงเสริม: ข้อมูลที่ไม่มีในตัวบท 57/159 แต่อยู่ใน chunk อื่น — แนบท้าย context เมื่อคำถามตรงหัวข้อ
+# (ไม่แย่งอันดับใน top-k ของตัวบทหลัก)
+EXEMPT_TRIGGERS = ["81/3", "กิจการที่ได้รับยกเว้น", "ได้รับยกเว้น vat", "ได้รับยกเว้นแวท", "ยกเว้นภาษีมูลค่าเพิ่ม", "ยกเว้น vat", "ยกเว้นแวท", "กิจการยกเว้น",
+                   "สละสิทธิ", "ขอเสีย vat", "ขอเสียแวท", "ขอเสียภาษีมูลค่าเพิ่ม", "ไม่ถึง 1.8", "ไม่ถึงเกณฑ์",
+                   "เข้าระบบ vat", "เข้าสู่ระบบ vat", "ภ.พ.01.1"]
+# กฎที่สอง: ถามเรื่อง "ขอเข้า VAT" คู่กับประเภทกิจการที่อยู่ในรายการ ม.81/3
+OPT_IN_WORDS = ["เข้าแวท", "เข้า vat", "ขอเข้า", "อยากจด vat", "อยากจดแวท"]
+EXEMPT_CATEGORY_WORDS = ["พืชผล", "เกษตร", "สัตว์", "ปุ๋ย", "ปลาป่น", "อาหารสัตว์", "ยาฆ่า", "เคมีภัณฑ์",
+                         "หนังสือพิมพ์", "นิตยสาร", "ตำรา", "หนังสือเรียน", "ขนส่ง", "อากาศยาน",
+                         "เขตอุตสาหกรรมส่งออก", "น้ำมันเชื้อเพลิงทางท่อ", "กิจการขนาดย่อม"]
+REFERENCE_SNIPPETS = {
+    # รายการกิจการยกเว้นที่ขอเข้า VAT ตาม ม.81/3 ในแบบคำขอแนบท้ายฉบับ 234 (ข้อ 2.1–2.5)
+    "s81_3_exempt_list": {"chunk_id": "VAT234_ART_ATTACHMENT", "triggers": EXEMPT_TRIGGERS,
+                          "combo": (OPT_IN_WORDS, EXEMPT_CATEGORY_WORDS),
+                          "start": "กรณีเป็นกิจการที่ได้รับยกเว้น", "end": "5. ผู้ยื่นคำขอ",
+                          "label": "รายการกิจการที่ได้รับยกเว้นภาษีมูลค่าเพิ่มซึ่งขอเข้าสู่ระบบตามมาตรา 81/3 ได้ "
+                                   "(จากแบบคำขอแนบท้ายประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม ฉบับที่ 234)"},
+}
 
 
 class RAGRetrievalAgent:
@@ -155,6 +176,9 @@ class RAGRetrievalAgent:
         # แนบข้อความอ้างอิง (รวมฉบับที่แก้ไขเพิ่มเติม) ไว้หัว chunk ให้ LLM อ้างได้ถูก
         assembled_context = "\n\n".join(
             [f"[อ้างอิง: {self.legal_citation(item[0])}]\n{item[2]['chunk']['llm_context']}" for item in prompt_top_3])
+        references = self.reference_snippets(query) if self.mode == "primary" else []
+        for ref in references:
+            assembled_context += f"\n\n[ข้อมูลประกอบ: {ref['label']}]\n{ref['text']}"
 
         return {
             "query": user_query,
@@ -187,8 +211,26 @@ class RAGRetrievalAgent:
                 }
                 for idx, item in enumerate(search_top_5)
             ],
+            "reference_snippets": references,
             "assembled_llm_context": assembled_context
         }
+
+    def reference_snippets(self, query: str) -> List[Dict[str, Any]]:
+        """ตัดเฉพาะส่วนที่เกี่ยวข้องจาก chunk อ้างอิงเสริม เมื่อคำถามตรงหัวข้อ"""
+        out = []
+        for key, spec in REFERENCE_SNIPPETS.items():
+            combo = spec.get("combo")
+            matched = any(t in query for t in spec["triggers"]) or (
+                combo is not None and any(w in query for w in combo[0]) and any(w in query for w in combo[1]))
+            if not matched:
+                continue
+            raw = self.chunks_db.get(spec["chunk_id"], {}).get("official_raw_text", "")
+            start, end = raw.find(spec["start"]), raw.find(spec["end"])
+            if start < 0 or end <= start:
+                continue
+            out.append({"key": key, "chunk_id": spec["chunk_id"], "label": spec["label"],
+                        "text": raw[start:end].strip()})
+        return out
 
     def _is_candidate(self, chunk: Dict[str, Any], is_dbd: bool) -> bool:
         if self.mode == "all":

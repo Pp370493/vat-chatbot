@@ -59,6 +59,8 @@ python chunking/scripts/eval_retrieval.py --markdown reports/retrieval_eval.md
 `agents/agent3_rag_retrieval.py` ใช้หลักการนี้เป็นค่าเริ่มต้น (`mode="primary"`) และแนบ `citation`
 เช่น "ประกาศ... (ฉบับที่ 57) ข้อ 9 ซึ่งแก้ไขเพิ่มเติมโดยฉบับที่ 74, 139, 165, 245 [ยื่นแบบกระดาษ]"
 — ใช้ `RAGRetrievalAgent(mode="all")` เพื่อเปรียบเทียบกับพฤติกรรมเดิม
+คำถามเรื่องกิจการยกเว้นที่ขอเข้า VAT (ม.81/3) จะได้ "ข้อมูลประกอบ" ต่อท้าย context คือรายการประเภทกิจการ
+จากแบบคำขอแนบท้ายฉบับ 234 (`reference_snippets` ใน `agent3_rag_retrieval.py`) โดยไม่แย่งอันดับตัวบทหลัก
 
 ## ตรวจคุณภาพข้อมูล
 
