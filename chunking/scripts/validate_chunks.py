@@ -176,14 +176,16 @@ def check_digits(all_chunks: dict, rep: Report):
     rep.add("INFO", "digits", f"chunk ที่ตัวบทใช้เลขไทย: {len(thai_digit_chunks)}/{len(all_chunks)} "
             f"(การ match 'ข้อ 9' แบบตรงตัวจะไม่เจอ 'ข้อ ๙' ถ้าไม่ normalize ก่อน)")
     for cid, c in all_chunks.items():
-        m = ARTICLE_NUM_RE.match(norm(c.get("article_ref", "")))
+        ref = norm(c.get("article_ref", ""))
+        m = ARTICLE_NUM_RE.match(ref)
         if not m:
             continue
-        num = m.group(1)
+        # ผ่านถ้าพบเลขข้อของฉบับนั้นเอง หรือเลขข้อที่ถูกแก้/เพิ่ม (ฉบับ 74 เก็บเฉพาะข้อความที่เพิ่ม ไม่มีคำนำ "ข้อ 2")
+        nums = [m.group(1)] + re.findall(r"(?:แก้ไข|เพิ่ม|ยกเลิก)\s*ข้อ\s*([0-9]+(?:/[0-9]+)?)", ref)
         raw = norm(c.get("official_raw_text", ""))
-        if not re.search(rf"ข้อ\s*{re.escape(num)}(?![0-9/])", raw):
-            rep.add("WARN", "digits", f"{cid}: article_ref 'ข้อ {num}' ไม่พบในตัวบท แม้ normalize เลขไทยแล้ว",
-                    article_ref=c.get("article_ref"))
+        if not any(re.search(rf"ข้อ\s*{re.escape(n)}(?![0-9/])", raw) for n in nums):
+            rep.add("WARN", "digits", f"{cid}: article_ref '{c.get('article_ref')}' ไม่พบเลขข้อในตัวบท "
+                    f"แม้ normalize เลขไทยแล้ว", article_ref=c.get("article_ref"))
 
 
 AMEND_TARGET_RE = re.compile(r"(?:แก้ไข|เพิ่ม|ยกเลิก)\s*ข้อ\s*([0-9]+(?:/[0-9]+)?)")

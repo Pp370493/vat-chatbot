@@ -15,6 +15,7 @@
 | `synthetic_dataset_vat_intent.csv` | ชุดข้อมูลจำลองสำหรับ intent classification |
 | `generate_synthetic_dataset.py`, `generate_updated_synthetic_dataset.py` | สคริปต์สร้างชุดข้อมูลจำลอง |
 | `batch_qa_audit_log.jsonl` | log ผลรัน batch Q&A |
+| `sources/` | PDF ต้นฉบับของประกาศ + สถานะการตรวจเทียบ (`scripts/compare_sources.py`) |
 | `agents/` | ต้นแบบ 8 agents + `orchestrator_pipeline.py` (lexical search, ไม่ใช้ LLM) |
 
 ## หลักการ: ตัวบทหลัก vs ตัวเสริม

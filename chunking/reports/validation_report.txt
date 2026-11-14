@@ -72,7 +72,7 @@
            chunk_ids: ['VAT139_ART_03', 'VAT165_ART_04', 'VAT214_ART_05', 'VAT215_ART_03', 'VAT234_ART_09', 'VAT245_ART_03', 'VAT246_ART_06']
 
 == redundancy
-  [INFO] ตัวบทถูกเก็บซ้ำใน embedding_input/llm_context รวม 340 KB จากข้อความ 3 ฟิลด์ทั้งหมด 601 KB
+  [INFO] ตัวบทถูกเก็บซ้ำใน embedding_input/llm_context รวม 341 KB จากข้อความ 3 ฟิลด์ทั้งหมด 602 KB
 
 == eval
   [INFO] user_intents รวม 582 คำถาม — ใช้เป็นชุดทดสอบ retrieval ได้ (คำถาม → chunk ที่ควรได้)
