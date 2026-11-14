@@ -6,6 +6,15 @@ Agent 3: RAG Retrieval Agent (Graph-Enhanced Hybrid Search)
 1. แก้ปัญหา Semantic Collision ระหว่าง ข้อ 9 (ผู้มีอำนาจลงนาม/ไม่อยู่) กับ ข้อ 7 (แบบฟอร์ม ภ.พ.20)
 2. กรองและเชื่อมโยงช่องทางยื่น (กระดาษ ฉบับ 57 / เน็ต ฉบับ 159 / DBD ฉบับ 234)
 3. เดินตามเส้นทาง Graph Lineage เพื่อเลือก Active Law Chunks ฉบับล่าสุดมาตอบ ป้องกันตัวบทเก่า
+
+หลักการ (mode="primary", ค่าเริ่มต้น):
+- ประกาศ 57 (ยื่นกระดาษ) และ 159 (ยื่นอินเทอร์เน็ต) เป็นตัวบทหลักฉบับรวมล่าสุด → ค้นเฉพาะ chunk ที่
+  metadata.role == "primary" (ตัด is_boilerplate ออก)
+- ประกาศ 234 (role "special") ใช้เฉพาะเมื่อคำถามระบุช่องทาง DBD
+- ฉบับแก้ไข (role "amendment") ไม่ถูกค้น แต่แนบเป็นที่มาผ่าน metadata.amended_by
+  เช่น "ประกาศฯ (ฉบับที่ 57) ข้อ 9 ซึ่งแก้ไขเพิ่มเติมโดยฉบับที่ 74, 139, 165, 245"
+mode="all" = พฤติกรรมเดิม (ค้นทั้ง 75 chunks) เก็บไว้ใช้เปรียบเทียบผล
+metadata.role/amended_by มาจาก scripts/annotate_roles.py
 """
 
 import os
@@ -13,8 +22,16 @@ import re
 import json
 from typing import List, Dict, Any, Tuple
 
+DBD_TRIGGERS = ["dbd", "กรมพัฒนาธุรกิจ", "จดพร้อมตั้งบริษัท", "พร้อมจัดตั้ง", "จัดตั้งบริษัท",
+                "เปิดบริษัทพร้อม", "e-registration", "ฉบับที่ 234", "ฉบับ 234"]
+ANNOUNCEMENT_LABEL = {"57": "ยื่นแบบกระดาษ", "159": "ยื่นผ่านอินเทอร์เน็ต", "234": "ยื่นผ่าน DBD"}
+
+
 class RAGRetrievalAgent:
-    def __init__(self, base_dir: str = None):
+    def __init__(self, base_dir: str = None, mode: str = "primary"):
+        if mode not in ("primary", "all"):
+            raise ValueError("mode ต้องเป็น 'primary' หรือ 'all'")
+        self.mode = mode
         if base_dir is None:
             # ใช้พาธของโฟลเดอร์ chunking ประกาศ
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -90,8 +107,12 @@ class RAGRetrievalAgent:
                 is_authority_intent = True
                 break
 
-        # คำนวณคะแนนสำหรับทุก Chunk
-        for cid, chunk in self.chunks_db.items():
+        # เลือกชุด chunk ที่จะค้นตามหลักการ
+        is_dbd = detected_channel == "DBD" or any(t in query for t in DBD_TRIGGERS)
+        candidates = {cid: c for cid, c in self.chunks_db.items() if self._is_candidate(c, is_dbd)}
+
+        # คำนวณคะแนนสำหรับทุก Chunk ในชุดที่เลือก
+        for cid, chunk in candidates.items():
             base_score = self._compute_lexical_similarity(query, chunk)
             boost_score = 0.0
             reasons = []
@@ -113,7 +134,9 @@ class RAGRetrievalAgent:
                     reasons.append("Ground Truth Boost (Section 9 Signing Authority active): +0.45")
 
             # Graph RAG Lineage Boost: กฎหมายฉบับล่าสุด (Active Law) จะได้คะแนนพิเศษ
-            active_law_bonus = self._check_graph_lineage_active(cid, detected_channel)
+            # ในโหมด primary ทุก chunk เป็นตัวบทฉบับปัจจุบันอยู่แล้ว lineage boost จึงไม่ช่วยแยก
+            # (และจะดัน chunk กลุ่มเดิมขึ้นมาทุกคำถาม) — ใช้เฉพาะโหมด all ที่มีฉบับเก่าปนอยู่
+            active_law_bonus = 0.0 if self.mode == "primary" else self._check_graph_lineage_active(cid, detected_channel)
             if active_law_bonus > 0:
                 boost_score += active_law_bonus
                 reasons.append(f"Graph RAG Lineage Active Law Boost: +{active_law_bonus:.2f}")
@@ -129,10 +152,14 @@ class RAGRetrievalAgent:
         prompt_top_3 = scored_chunks[:top_k_prompt]
 
         # รวมข้อความ Context สำหรับส่งให้ Agent 4 (LLM Prompt)
-        assembled_context = "\n\n".join([item[2]["chunk"]["llm_context"] for item in prompt_top_3])
+        # แนบข้อความอ้างอิง (รวมฉบับที่แก้ไขเพิ่มเติม) ไว้หัว chunk ให้ LLM อ้างได้ถูก
+        assembled_context = "\n\n".join(
+            [f"[อ้างอิง: {self.legal_citation(item[0])}]\n{item[2]['chunk']['llm_context']}" for item in prompt_top_3])
 
         return {
             "query": user_query,
+            "mode": self.mode,
+            "searched_chunks": len(candidates),
             "detected_channel": detected_channel,
             "is_authority_intent": is_authority_intent,
             "prompt_top_chunks": [
@@ -143,7 +170,9 @@ class RAGRetrievalAgent:
                     "title": item[2]["chunk"].get("title"),
                     "source_file": item[2]["chunk"].get("source_file"),
                     "reasons": item[2]["reasons"],
-                    "llm_context": item[2]["chunk"].get("llm_context")
+                    "llm_context": item[2]["chunk"].get("llm_context"),
+                    "role": item[2]["chunk"].get("metadata", {}).get("role"),
+                    "citation": self.legal_citation(item[0]),
                 }
                 for item in prompt_top_3
             ],
@@ -160,6 +189,34 @@ class RAGRetrievalAgent:
             ],
             "assembled_llm_context": assembled_context
         }
+
+    def _is_candidate(self, chunk: Dict[str, Any], is_dbd: bool) -> bool:
+        if self.mode == "all":
+            return True
+        meta = chunk.get("metadata", {})
+        if "role" not in meta:
+            raise RuntimeError("chunk ยังไม่มี metadata.role — รัน scripts/annotate_roles.py --write ก่อน")
+        if meta.get("is_boilerplate"):
+            return False
+        return meta["role"] == "primary" or (is_dbd and meta["role"] == "special")
+
+    def legal_citation(self, chunk_id: str) -> str:
+        """ข้อความอ้างอิงตัวบท เช่น 'ประกาศอธิบดีฯ VAT (ฉบับที่ 57) ข้อ 9 ซึ่งแก้ไขเพิ่มเติมโดยฉบับที่ 74, 139, 165, 245'"""
+        chunk = self.chunks_db.get(chunk_id, {})
+        meta = chunk.get("metadata", {})
+        ann = chunk_id.split("_")[0][3:]
+        article = chunk.get("article_ref", "")
+        if meta.get("role") == "amendment" and meta.get("amends"):
+            primary = meta["amends"][0]
+            return (f"{self.legal_citation(primary)} (ข้อความตามประกาศฉบับที่ {ann}"
+                    + ("" if meta.get("is_current", True) else " ซึ่งถูกแก้ไขอีกภายหลัง — ไม่มีผลบังคับแล้ว") + ")")
+        text = f"ประกาศอธิบดีกรมสรรพากร เกี่ยวกับภาษีมูลค่าเพิ่ม (ฉบับที่ {ann}) {article}".strip()
+        amenders = sorted({a.split("_")[0][3:] for a in meta.get("amended_by", [])}, key=int)
+        if amenders:
+            text += " ซึ่งแก้ไขเพิ่มเติมโดยฉบับที่ " + ", ".join(amenders)
+        if ann in ANNOUNCEMENT_LABEL:
+            text += f" [{ANNOUNCEMENT_LABEL[ann]}]"
+        return text
 
     def _compute_lexical_similarity(self, query: str, chunk: Dict[str, Any]) -> float:
         """คำนวณคะแนนความคล้ายคลึงของคำ (Keyword Overlap / TF-IDF Proxy)"""

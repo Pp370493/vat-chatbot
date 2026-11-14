@@ -43,7 +43,8 @@ class ResponderAgent:
                 "chunk_id": c.get("chunk_id"),
                 "article_ref": c.get("article_ref"),
                 "title": c.get("title"),
-                "source_file": c.get("source_file")
+                "source_file": c.get("source_file"),
+                "legal_citation": c.get("citation"),   # รวมฉบับแก้ไขเพิ่มเติม (จาก Agent 3)
             })
 
         # พยายามเรียก Local LLM (qwen2.5:3b-instruct) ถ้ามีบริการอยู่
