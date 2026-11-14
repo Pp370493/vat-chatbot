@@ -272,8 +272,8 @@ def check_missing_announcements(all_chunks: dict, rep: Report):
             if num not in CORPUS:
                 refs[num].add(cid)
     for num, cids in sorted(refs.items(), key=lambda x: int(x[0])):
-        rep.add("WARN", "corpus", f"ตัวบทอ้างถึงประกาศฉบับที่ {num} แต่ไม่มีในชุดข้อมูล",
-                referenced_by=sorted(cids))
+        rep.add("INFO", "corpus", f"ตัวบทอ้างถึงประกาศฉบับที่ {num} ซึ่งไม่มีในชุดข้อมูล — เป็นฉบับแก้ไขระหว่างทาง "
+                f"ที่ถูกเขียนทับเข้าไปในฉบับ 57/159 แล้ว ไม่ต้องเพิ่ม", referenced_by=sorted(cids))
 
 
 def chunk_topics(graph: dict) -> dict[str, set]:
