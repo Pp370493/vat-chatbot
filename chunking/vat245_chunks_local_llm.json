@@ -58,7 +58,15 @@
         "เป็นแม่ค้า TikTok พักห้องชุดคอนโด อยากเข้า VAT ต้องจดทางไหน?",
         "มีทะเบียนพาณิชย์อิเล็กทรอนิกส์ ที่อยู่เป็นคอนโด ยื่น ภ.พ.01 กระดาษโดนปฏิเสธเพราะอะไร?",
         "อยู่คอนโดขายของใน Shopee ยื่นจดภาษีมูลค่าเพิ่มผ่านเว็บสรรพากรตรงไหน?"
-      ]
+      ],
+      "role": "amendment",
+      "is_current": true,
+      "is_boilerplate": false,
+      "amends": [
+        "VAT57_ART_04_1"
+      ],
+      "amends_article": "57:ข้อ 4/1",
+      "merge_coverage": 0.991
     },
     "official_announcement": {
       "number": "245",
@@ -125,7 +133,15 @@
         "เจ้าหน้าที่สรรพากรพื้นที่สาขาทั่วไปมีอำนาจลงนามในใบทะเบียน ภ.พ.20 เองได้เลยไหม?",
         "บริษัทที่อยู่ในความดูแลของกองบริหารภาษีธุรกิจขนาดใหญ่ (LTO) ใครเป็นผู้ลงนามออกใบทะเบียน VAT?",
         "กรณีผู้มีอำนาจตามข้อ 9 ป่วยหรือติดภารกิจ กฎหมายให้อำนาจใครเซ็นปฏิบัติราชการแทนได้บ้าง?"
-      ]
+      ],
+      "role": "amendment",
+      "is_current": true,
+      "is_boilerplate": false,
+      "amends": [
+        "VAT57_ART_09"
+      ],
+      "amends_article": "57:ข้อ 9",
+      "merge_coverage": 1.0
     },
     "official_announcement": {
       "number": "245",
@@ -158,7 +174,13 @@
       "user_intents": [
         "ประกาศฉบับที่ 245 มีผลใช้บังคับตั้งแต่วันที่เท่าไหร่",
         "ใครเป็นผู้ลงนามในประกาศฉบับที่ 245"
-      ]
+      ],
+      "role": "amendment",
+      "is_current": true,
+      "is_boilerplate": true,
+      "amends": [],
+      "amends_article": null,
+      "merge_coverage": null
     },
     "official_announcement": {
       "number": "245",

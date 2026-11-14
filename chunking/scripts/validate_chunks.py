@@ -12,6 +12,8 @@
   7. title / article_ref ตรงกับตัวบท (กัน title+keyword เลื่อนข้อ)
   8. chunk ท้ายประกาศ (วันใช้บังคับ/ผู้ลงนาม) ที่ปนอยู่ในดัชนีค้นหา
   9. ข้อความซ้ำซ้อนระหว่าง official_raw_text / embedding_input / llm_context
+ 10. role / amends / is_current (หลักการ 57+159 เป็นตัวบทหลักฉบับรวม) และฉบับแก้ไขรุ่นล่าสุด
+     ถูกรวมเข้าตัวบทหลักแล้ว
 
 ใช้งาน:
   python chunking/scripts/validate_chunks.py            # รายงานแบบอ่านง่าย
@@ -43,7 +45,6 @@ GENERIC_ARTICLE_KW_RE = re.compile(r"^ข้อ\s*[0-9]+(?:/[0-9]+)?$")
 
 SHORT_KW_LEN = 4          # keyword ที่ยาว <= นี้ (ตัวอักษร) ถือว่าสั้นเกิน เสี่ยง substring match
 SHARED_KW_TOPICS = 3       # keyword ที่กระจายอยู่ใน >= จำนวน topic (ใน graph) นี้ ถือว่ากว้างเกิน
-BOILERPLATE_MAX_LEN = 400
 
 
 def norm(text: str) -> str:
@@ -348,15 +349,80 @@ def check_keywords(all_chunks: dict, dictionary: dict, graph: dict, rep: Report)
 
 
 def check_boilerplate(all_chunks: dict, rep: Report):
+    marked, unmarked = [], []
     for cid, c in all_chunks.items():
         raw = c.get("official_raw_text", "")
-        if "ใช้บังคับ" in raw and len(raw) <= BOILERPLATE_MAX_LEN:
-            intents = (c.get("metadata") or {}).get("user_intents", [])
-            clash = [i for i in intents if "ลงนาม" in i or "เซ็น" in i]
-            rep.add("WARN", "boilerplate",
-                    f"{cid}: chunk ท้ายประกาศ (วันใช้บังคับ/ผู้ลงนาม, {len(raw)} ตัวอักษร) อยู่ในดัชนีค้นหา"
-                    + (" — user_intents มีคำ 'ลงนาม/เซ็น' ชนกับข้อ 9" if clash else ""),
-                    clashing_intents=clash)
+        if re.match(r"^\s*ข้อ\s*[0-9๐-๙]+\s*ประกาศนี้ให้ใช้บังคับ", raw):
+            (marked if (c.get("metadata") or {}).get("is_boilerplate") else unmarked).append(cid)
+    if unmarked:
+        rep.add("WARN", "boilerplate", "chunk ท้ายประกาศ (วันใช้บังคับ/ผู้ลงนาม) ที่ยังไม่ได้ติด is_boilerplate "
+                "— จะหลุดเข้าดัชนีค้นหาและชนกับคำถามข้อ 9 'ใครลงนาม'", chunk_ids=unmarked)
+    if marked:
+        rep.add("INFO", "boilerplate", f"chunk ท้ายประกาศ {len(marked)} ตัวติด is_boilerplate แล้ว "
+                "— retrieval ต้องกรองออก", chunk_ids=marked)
+
+
+def check_roles(all_chunks: dict, rep: Report):
+    """หลักการ: 57/159 = ตัวบทหลักฉบับรวมล่าสุด, ฉบับแก้ไข = ตัวเสริม, 234 = ช่องทาง DBD"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from annotate_roles import (AMENDS_TARGET, MERGED_MIN_COVERAGE, PRIMARY, SPECIAL,
+                                ann_of, coverage, new_text)
+
+    meta = {cid: c.get("metadata") or {} for cid, c in all_chunks.items()}
+    missing = [cid for cid, m in meta.items() if "role" not in m or "is_current" not in m]
+    if missing:
+        rep.add("ERROR", "roles", f"{len(missing)} chunk ยังไม่มี role/is_current "
+                "— รัน scripts/annotate_roles.py --write", chunk_ids=missing)
+        return
+
+    for cid, m in meta.items():
+        ann = ann_of(cid)
+        expected = "primary" if ann in PRIMARY else "special" if ann in SPECIAL else "amendment"
+        if m["role"] != expected:
+            rep.add("ERROR", "roles", f"{cid}: role '{m['role']}' แต่ควรเป็น '{expected}'")
+        if m["role"] == "amendment" and not m.get("is_boilerplate"):
+            for p in m.get("amends") or []:
+                if p not in all_chunks or meta[p].get("role") != "primary":
+                    rep.add("ERROR", "roles", f"{cid}: amends '{p}' ไม่ใช่ chunk ตัวบทหลัก")
+                elif ann_of(p) != AMENDS_TARGET.get(ann):
+                    rep.add("ERROR", "roles", f"{cid}: amends '{p}' แต่ฉบับ {ann} แก้ฉบับ {AMENDS_TARGET.get(ann)}")
+                elif cid not in (meta[p].get("amended_by") or []):
+                    rep.add("WARN", "roles", f"{p}: amended_by ไม่มี {cid} (ข้อมูลสองทางไม่ตรงกัน)")
+            if not m.get("amends"):
+                rep.add("WARN", "roles", f"{cid}: ฉบับแก้ไขที่ไม่ได้ระบุ amends")
+
+    # ฉบับแก้ไขรุ่นล่าสุดของแต่ละข้อ ต้องถูกรวมเข้าตัวบทหลักแล้ว (คำนวณใหม่ ไม่เชื่อค่าที่เก็บไว้)
+    not_merged = []
+    for p, m in meta.items():
+        if m.get("role") != "primary" or not m.get("amended_by"):
+            continue
+        latest = max(int(ann_of(a)) for a in m["amended_by"])
+        siblings = "".join(all_chunks[x]["official_raw_text"] for x in sorted(all_chunks)
+                           if x.startswith(p.rsplit("_", 1)[0] if p[-2] == "_" and p[-1].isalpha() else p))
+        for a in m["amended_by"]:
+            if int(ann_of(a)) != latest:
+                continue
+            text = new_text(all_chunks[a]["official_raw_text"])
+            cov = max(coverage(text, all_chunks[p]["official_raw_text"]), coverage(text, siblings))
+            if cov < MERGED_MIN_COVERAGE:
+                not_merged.append(f"{a} → {p} ({cov:.0%})")
+    if not_merged:
+        rep.add("ERROR", "consolidation", "ฉบับแก้ไขรุ่นล่าสุดที่ข้อความยังไม่อยู่ในตัวบทหลัก 57/159 "
+                "— ตัวบทหลักอาจยังไม่ได้อัปเดต", detail=not_merged)
+    else:
+        rep.add("INFO", "consolidation", "ฉบับแก้ไขรุ่นล่าสุดของทุกข้อถูกรวมเข้าตัวบทหลัก 57/159 แล้ว")
+
+    superseded = [f"{cid} (แทนที่โดยฉบับ {', '.join(m.get('superseded_by') or [])})"
+                  for cid, m in meta.items() if not m.get("is_current")]
+    counts = defaultdict(int)
+    for m in meta.values():
+        counts[m["role"]] += 1
+    rep.add("INFO", "roles", "role: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items()))
+            + f" | ดัชนีค้นหาหลัก (primary ไม่รวม boilerplate): "
+            f"{sum(1 for m in meta.values() if m['role'] == 'primary' and not m.get('is_boilerplate'))} chunks")
+    if superseded:
+        rep.add("INFO", "roles", f"ฉบับแก้ไขที่ถูกเขียนทับแล้ว {len(superseded)} chunk (มีกฎที่ยกเลิกแล้ว "
+                "— ใช้อ้างประวัติได้ ห้ามใช้ตอบ)", chunks=superseded)
 
 
 def check_redundancy(all_chunks: dict, rep: Report):
@@ -393,6 +459,7 @@ def main() -> int:
 
     rep = Report()
     all_chunks = check_schema(chunks_by_file, combined, rep)
+    check_roles(all_chunks, rep)
     check_references(all_chunks, dictionary, graph, rep)
     check_graph_coverage(all_chunks, graph, rep)
     check_alignment(all_chunks, rep)

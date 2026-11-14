@@ -17,6 +17,33 @@
 | `batch_qa_audit_log.jsonl` | log ผลรัน batch Q&A |
 | `agents/` | ต้นแบบ 8 agents + `orchestrator_pipeline.py` (lexical search, ไม่ใช้ LLM) |
 
+## หลักการ: ตัวบทหลัก vs ตัวเสริม
+
+- **ประกาศ 57 (ยื่นกระดาษ) และ 159 (ยื่นอินเทอร์เน็ต) คือตัวบทหลัก** เป็นฉบับรวมล่าสุด —
+  ฉบับแก้ไขทุกฉบับ (รวมฉบับระหว่างทางที่ไม่อยู่ในชุดข้อมูล เช่น 99, 203, 204) ถูกเขียนทับเข้าไปแล้ว
+- ฉบับแก้ไข (74, 139, 165, 214, 215, 245, 246) เป็น **ตัวเสริม** ใช้อ้างที่มา ("แก้ไขเพิ่มเติมโดย...")
+- ฉบับ 234 เป็นช่องทางพิเศษ (DBD) ใช้เฉพาะคำถามที่ระบุ DBD
+
+`scripts/annotate_roles.py` ใส่ฟิลด์ต่อไปนี้ใน `metadata` ของทุก chunk:
+
+| ฟิลด์ | ความหมาย |
+|---|---|
+| `role` | `primary` (57/159) · `amendment` · `special` (234) |
+| `is_current` | ข้อความยังมีผลบังคับใช้ (amendment ที่ถูกฉบับหลังเขียนทับ = `false`) |
+| `is_boilerplate` | ข้อท้ายประกาศ (วันใช้บังคับ/ผู้ลงนาม) — ไม่ควรอยู่ในดัชนีค้นหา |
+| `amends` / `amends_article` | (amendment) chunk/ข้อของตัวบทหลักที่ถูกแก้ |
+| `merge_coverage` | (amendment) สัดส่วนข้อความใหม่ที่พบในตัวบทหลัก |
+| `superseded_by` | (amendment ที่ไม่ current) ฉบับที่เขียนทับ |
+| `amended_by` | (primary) ฉบับแก้ไขทั้งหมดของข้อนี้ เรียงตามลำดับ |
+
+แนวทาง retrieval: ค้นเฉพาะ `role == "primary"` (และ `special` เมื่อคำถามระบุ DBD) โดยกรอง `is_boilerplate`
+ออก แล้วใช้ `amended_by` ประกอบการอ้างอิง — ห้ามใช้ chunk ที่ `is_current == false` ตอบคำถาม
+
+```bash
+python chunking/scripts/annotate_roles.py           # ดูตารางผล
+python chunking/scripts/annotate_roles.py --write   # เขียนลงไฟล์ chunk (รายฉบับ + all_10)
+```
+
 ## ตรวจคุณภาพข้อมูล
 
 ```bash
@@ -25,7 +52,8 @@ python chunking/scripts/validate_chunks.py --json   # JSON
 ```
 
 ตรวจ schema, chunk ID ที่ dictionary/graph/agents อ้างถึง, title ตรงกับตัวบท, เลขไทย/อารบิก,
-ประกาศที่ถูกอ้างถึงแต่ไม่มีในชุดข้อมูล, คุณภาพ keyword และ chunk ท้ายประกาศ
+ประกาศที่ถูกอ้างถึงแต่ไม่มีในชุดข้อมูล, คุณภาพ keyword, chunk ท้ายประกาศ,
+role/amends และตรวจว่าฉบับแก้ไขรุ่นล่าสุดถูกรวมเข้าตัวบทหลัก 57/159 แล้ว
 (exit code 1 ถ้ามี ERROR) — ผลล่าสุดอยู่ที่ [`reports/validation_report.txt`](reports/validation_report.txt)
 
 ## รันต้นแบบ
