@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Graph RAG Visualizer: แผนผังความสัมพันธ์การจดทะเบียนภาษีมูลค่าเพิ่ม</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+    body { font-family: 'Sarabun', sans-serif; }
+    code, pre { font-family: 'Fira Code', monospace; }
+    .node-active { stroke-width: 4px; filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.9)); }
+    .edge-active { stroke: #38bdf8 !important; stroke-width: 3.5px !important; stroke-dasharray: 6; animation: dash 1s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -12; } }
+    .badge-pill { font-size: 11px; padding: 2px 8px; border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased p-2 min-h-screen">
+
+  <div class="max-w-[1700px] mx-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[96vh]">
+    
+    <!-- Header -->
+    <header class="bg-slate-900/90 border-b border-slate-800 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/20">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Graph RAG Explorer: แผนผังความสัมพันธ์การจดทะเบียนภาษีมูลค่าเพิ่ม
+            <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">10 ประกาศ • 8 ข้อกฎหมาย • Multi-View</span>
+          </h1>
+          <p class="text-xs text-slate-400">โครงข่ายความสัมพันธ์ระหว่างประมวลรัษฎากร ประกาศแม่บท ฉบับแก้ไขเพิ่มเติม ขั้นตอนยื่นคำขอ และการแก้ Semantic Collision</p>
+        </div>
+      </div>
+
+      <!-- Quick Controls -->
+      <div class="flex items-center gap-3">
+        <!-- View Switcher -->
+        <div class="bg-slate-800/90 p-1 rounded-xl border border-slate-700 flex text-xs font-medium">
+          <button onclick="switchView('process')" id="btnViewProcess" class="view-btn active px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow">🔄 ผังกระบวนการ (Process Flow)</button>
+          <button onclick="switchView('evolution')" id="btnViewEvolution" class="view-btn px-3 py-1.5 rounded-lg text-slate-300 hover:text-white">📜 สายวิวัฒนาการ 10 ฉบับ (Lineage)</button>
+          <button onclick="switchView('groundtruth')" id="btnViewGroundTruth" class="view-btn px-3 py-1.5 rounded-lg text-slate-300 hover:text-white">⚖️ จุดชี้ขาด ข้อ 9 vs 7 vs 10</button>
+        </div>
+
+        <button onclick="resetGraph()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          รีเซ็ต
+        </button>
+      </div>
+    </header>
+
+    <!-- Query Simulation Sub-Bar -->
+    <div class="bg-slate-900/60 border-b border-slate-800/80 px-6 py-2 flex items-center gap-3">
+      <span class="text-xs text-blue-400 font-semibold flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        ทดสอบคำถามจำลอง (Live RAG Simulator):
+      </span>
+      <div class="flex-1 flex gap-2 overflow-x-auto py-0.5">
+        <button onclick="runSimulation('authority_absent')" class="sim-btn text-xs bg-slate-800/90 hover:bg-blue-600/30 hover:border-blue-500 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg transition whitespace-nowrap">
+          🎯 "ถ้าสรรพากรไม่อยู่ใครเซ็น ภ.พ.20"
+        </button>
+        <button onclick="runSimulation('prepare_docs')" class="sim-btn text-xs bg-slate-800/90 hover:bg-blue-600/30 hover:border-blue-500 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg transition whitespace-nowrap">
+          📁 "จด vat ต้องเตรียมเอกสารอะไรไปยื่น"
+        </button>
+        <button onclick="runSimulation('online_condo')" class="sim-btn text-xs bg-slate-800/90 hover:bg-blue-600/30 hover:border-blue-500 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg transition whitespace-nowrap">
+          🏢 "ขายของออนไลน์อยู่คอนโด ยื่นที่ไหนและใช้อะไร"
+        </button>
+        <button onclick="runSimulation('risk_accounting_office')" class="sim-btn text-xs bg-slate-800/90 hover:bg-rose-600/30 hover:border-rose-500 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg transition whitespace-nowrap">
+          ⚠️ "ใช้ที่ตั้ง สนง.บัญชี และลูกจ้างเป็นกรรมการ"
+        </button>
+        <button onclick="runSimulation('dbd_single')" class="sim-btn text-xs bg-slate-800/90 hover:bg-blue-600/30 hover:border-blue-500 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg transition whitespace-nowrap">
+          🏛️ "เปิดบริษัทที่ DBD จด VAT พร้อมกันได้ไหม"
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex overflow-hidden">
+      
+      <!-- Graph Canvas Container (72%) -->
+      <div class="flex-1 relative bg-slate-950 flex flex-col">
+        <!-- Floating Channel Filters -->
+        <div id="channelFilterBar" class="absolute top-4 left-4 z-10 flex flex-wrap gap-2 bg-slate-900/90 backdrop-blur p-2 rounded-xl border border-slate-800 text-xs shadow-lg">
+          <span class="text-slate-400 self-center px-1 font-medium">กรองช่องทาง:</span>
+          <button onclick="filterChannel('all')" class="chan-btn active px-2.5 py-1 rounded-md bg-blue-600 text-white font-medium">ทั้งหมด</button>
+          <button onclick="filterChannel('walkin')" class="chan-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300">🏢 ยื่นกระดาษ (ฉบับ 57)</button>
+          <button onclick="filterChannel('online')" class="chan-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300">🌐 อินเทอร์เน็ต (ฉบับ 159)</button>
+          <button onclick="filterChannel('dbd')" class="chan-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300">🏛️ DBD Single Window (ฉบับ 234)</button>
+        </div>
+
+        <!-- Legend Overlay -->
+        <div class="absolute bottom-4 left-4 z-10 bg-slate-900/90 backdrop-blur p-3 rounded-xl border border-slate-800 text-xs shadow-lg space-y-1.5 pointer-events-none">
+          <div class="font-bold text-slate-300 mb-1">สัญลักษณ์เส้นความสัมพันธ์:</div>
+          <div class="flex items-center gap-2"><span class="w-5 h-0.5 bg-blue-500 inline-block"></span> <span class="text-slate-400">PROCEEDS_TO (ลำดับขั้นตอน)</span></div>
+          <div class="flex items-center gap-2"><span class="w-5 h-0.5 bg-rose-500 inline-block"></span> <span class="text-slate-400">AMENDS (แก้ไขเพิ่มเติม)</span></div>
+          <div class="flex items-center gap-2"><span class="w-5 h-0.5 bg-amber-400 inline-block"></span> <span class="text-slate-400">SUPERSEDES (แทนที่ข้อความเดิม)</span></div>
+          <div class="flex items-center gap-2"><span class="w-5 h-0.5 bg-emerald-400 inline-block"></span> <span class="text-slate-400">AUTHORIZES (มอบอำนาจลงนาม)</span></div>
+          <div class="flex items-center gap-2"><span class="w-5 h-0.5 bg-purple-400 inline-block"></span> <span class="text-slate-400">EXEMPTS / SPECIAL RULE (ข้อยกเว้น)</span></div>
+        </div>
+
+        <!-- SVG Graph Rendering Area -->
+        <svg id="graphSvg" class="w-full h-full cursor-grab active:cursor-grabbing select-none"></svg>
+      </div>
+
+      <!-- Right Inspector & Chatbot Reasoning Panel (28%) -->
+      <aside class="w-[420px] border-l border-slate-800 bg-slate-900 flex flex-col h-full overflow-hidden">
+        <div class="p-4 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between">
+          <h2 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+            รายละเอียดโหนดและผลวิเคราะห์ RAG
+          </h2>
+          <span id="badgeStatus" class="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400">พร้อมใช้งาน</span>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+          
+          <!-- Live AI Reasoning Card -->
+          <div id="aiReasoningBox" class="bg-blue-950/40 border border-blue-800/60 rounded-xl p-4 space-y-2.5 hidden">
+            <div class="flex items-center justify-between text-blue-400 font-semibold text-xs border-b border-blue-900/60 pb-2">
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 animate-spin text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                เส้นทางการสืบค้นของ Graph RAG
+              </span>
+              <span id="simIntentBadge" class="badge-pill bg-blue-500/20 text-blue-300 border border-blue-500/30">IN_SCOPE_VAT</span>
+            </div>
+            
+            <p id="aiQueryText" class="text-slate-300 font-medium italic"></p>
+            <div id="aiAnswerText" class="text-slate-200 leading-relaxed font-normal bg-slate-900/80 p-3 rounded-lg border border-slate-800"></div>
+
+            <div class="pt-2 text-[11px] text-blue-300 space-y-1">
+              <span class="font-semibold block text-slate-300">โหนดเป้าหมายที่ Graph RAG ส่งให้ LLM (Prompt Context Top-3):</span>
+              <ul id="activeChunksList" class="list-disc list-inside space-y-1 text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80"></ul>
+            </div>
+
+            <div id="aiCollisionAlert" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-[11px] space-y-1">
+              <span class="font-bold flex items-center gap-1">🛡️ Anti-Collision Guardrail Activated:</span>
+              <p id="aiCollisionText" class="text-slate-300 leading-tight"></p>
+            </div>
+          </div>
+
+          <!-- Node Detail Card -->
+          <div id="nodeDetailCard" class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 space-y-3">
+            <div>
+              <div class="flex items-center justify-between">
+                <span id="detailType" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/30">PROCESS STAGE</span>
+                <span id="detailClauseTag" class="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">ข้อ 9</span>
+              </div>
+              <h3 id="detailTitle" class="text-base font-bold text-white mt-2">ผู้มีอำนาจออกใบทะเบียนภาษีมูลค่าเพิ่ม (ภ.พ.20)</h3>
+              <p id="detailSubtitle" class="text-slate-400 text-xs mt-0.5">อำนาจหน้าที่ตามกฎหมาย และการปฏิบัติหน้าที่แทนเมื่อไม่อยู่</p>
+            </div>
+
+            <div class="space-y-2.5 pt-2.5 border-t border-slate-700/50">
+              <div>
+                <span class="text-slate-400 block font-medium">ประกาศหลักที่กำกับ:</span>
+                <span id="detailLawRef" class="text-slate-200 font-medium">ฉบับที่ 57 ข้อ 9 (แก้ไขโดย 245) / ฉบับที่ 159 ข้อ 9 (แก้ไขโดย 246)</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block font-medium">สาระสำคัญตามตัวบท (Ground Truth):</span>
+                <p id="detailDesc" class="text-slate-300 text-xs leading-relaxed mt-1 bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                  ผู้มีอำนาจออกใบ ภ.พ.20 ได้แก่ สรรพากรพื้นที่ หรือ ผอ.กองบริหารภาษีธุรกิจขนาดใหญ่ (LTO) หากไม่อยู่ กฎหมายรองรับให้ 'ผู้ที่ได้รับมอบหมาย' เป็นผู้ลงนามแทนได้
+                </p>
+              </div>
+              <div id="detailRelationsContainer">
+                <span class="text-slate-400 block font-medium mb-1">ความเชื่อมโยงใน Graph:</span>
+                <div id="detailRelationsList" class="space-y-1 text-[11px] text-slate-300"></div>
+              </div>
+            </div>
+
+            <div id="chunksTagContainer" class="pt-2 border-t border-slate-700/50">
+              <span class="text-slate-400 block font-medium mb-1.5">Chunks ในฐานข้อมูล:</span>
+              <div id="chunksBadgeList" class="flex flex-wrap gap-1"></div>
+            </div>
+          </div>
+
+          <!-- System Architecture Info -->
+          <div class="bg-slate-800/40 border border-slate-800 rounded-xl p-3.5 space-y-2">
+            <h4 class="font-bold text-slate-300 text-xs flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              การป้องกัน Hallucination ในระบบ 8 Agents
+            </h4>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              เมื่อคำถามถามเรื่อง <span class="text-sky-300 font-semibold">'ใครเซ็น/ไม่อยู่'</span> ตัวระบบ Graph RAG จะให้คะแนนโหนด <span class="text-emerald-400 font-semibold">ข้อ 9 (+0.45)</span> และตัดคะแนนโหนด <span class="text-rose-400 font-semibold">ข้อ 7 (-0.60)</span> ทันที เพื่อป้องกันไม่ให้คำว่า 'ภ.พ.20' ดึงแบบฟอร์มเปล่ามาให้ LLM มโนคำตอบ
+            </p>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <script>
+    // --- GRAPH DATA FOR 3 VIEWS ---
+    
+    // View 1: PROCESS VIEW (8 Steps from Applicant to Final Certificate & Interpretation)
+    const processNodes = [
+      // 1. Entities
+      { id: "P_APPLICANT", label: "ผู้ประกอบการที่ต้องจด VAT", sub: "บุคคลธรรมดา / นิติบุคคล / ค้าออนไลน์", x: 120, y: 120, type: "entity", color: "#6366f1", clause: "ม.85 ประมวลรัษฎากร", desc: "ผู้ประกอบการที่มีรายรับเกิน 1.8 ล้านบาท/ปี หรือเริ่มประกอบกิจการที่อยู่ในบังคับต้องเสียภาษีมูลค่าเพิ่ม" },
+      { id: "P_SPOUSE", label: "สามีภริยา / คณะบุคคล", sub: "ต้องมีทะเบียนสมรส / สัญญาจัดตั้ง", x: 120, y: 280, type: "entity", color: "#818cf8", clause: "ข้อ 5(2) (ฉบับ 215)", desc: "คู่สมรสร่วมกันประกอบกิจการ ต้องแนบสำเนาทะเบียนสมรส หากไม่มีต้องจดเป็นคณะบุคคล" },
+      { id: "P_ONLINE_CONDO", label: "ผู้ค้าออนไลน์พักอาศัยคอนโด", sub: "สัญชาติไทย บังคับยื่นเน็ตวิธีเดียว", x: 120, y: 440, type: "entity", color: "#a855f7", clause: "ข้อ 4/1 (ฉบับ 245)", desc: "ผู้ค้าออนไลน์บุคคลธรรมดาสัญชาติไทยที่ใช้ห้องชุดคอนโดเป็นที่ตั้งสถานประกอบการ ต้องยื่นผ่าน rd.go.th เท่านั้น" },
+      
+      // 2. Timing
+      { id: "P_TIMING", label: "ขั้นตอน 1: กำหนดเวลายื่น", sub: "ล่วงหน้า 6 ด. / 30 วัน / ม.81/3", x: 380, y: 120, type: "stage", color: "#0ea5e9", clause: "ข้อ 1, 2, 3 (ฉบับ 57/159)", desc: "จดล่วงหน้าได้ไม่เกิน 6 เดือนก่อนเปิดร้าน (ก่อสร้าง/สั่งเครื่องจักร) หรือยื่นภายใน 30 วันนับแต่วันเริ่มกิจการ" },
+
+      // 3. Channels
+      { id: "P_CH_WALKIN", label: "ช่องทาง 1: ยื่นกระดาษ (Walk-in)", sub: "ณ สำนักงานสรรพากรพื้นที่ / สาขา / LTO", x: 380, y: 260, type: "channel", color: "#3b82f6", clause: "ข้อ 4 (ฉบับ 57/139/165)", desc: "ยื่นแบบ ภ.พ.01 จำนวน 3 ฉบับ พร้อมเอกสารหลักฐานตัวจริงและสำเนา" },
+      { id: "P_CH_ONLINE", label: "ช่องทาง 2: ยื่นอินเทอร์เน็ต", sub: "ผ่านเว็บไซต์ rd.go.th", x: 380, y: 400, type: "channel", color: "#8b5cf6", clause: "ข้อ 1 (ฉบับ 159/246)", desc: "กรอกข้อมูลและอัปโหลดเอกสารหลักฐานผ่านระบบ e-Registration ของกรมสรรพากร" },
+      { id: "P_CH_DBD", label: "ช่องทาง 3: DBD Single Window", sub: "จด VAT พร้อมจดตั้งนิติบุคคล", x: 380, y: 540, type: "channel", color: "#ec4899", clause: "ข้อ 1, 4 (ฉบับ 234)", desc: "ยื่นคำขอจด VAT พร้อมจัดตั้งบริษัทที่กรมพัฒนาธุรกิจการค้า โดยต้องลงนามในข้อรับรอง 5 ข้อ" },
+
+      // 4. Documents
+      { id: "P_DOCS", label: "ขั้นตอน 2: เอกสารและหลักฐาน", sub: "บัตร ปชช. / สัญญาเช่า / ป้ายร้าน / คอนโด", x: 650, y: 260, type: "stage", color: "#10b981", clause: "ข้อ 5 (ฉบับ 57/159/215/246)", desc: "เอกสารแสดงตัวตน สัญญาเช่า/หนังสือยินยอม ภาพถ่ายป้ายชื่อร้าน *คอนโดยกเว้นหนังสือนิติให้ผู้ค้าออนไลน์*" },
+
+      // 5. Risk Screening
+      { id: "P_RISK", label: "ขั้นตอน 3: ตรวจสอบความเสี่ยง 8 ข้อ", sub: "นอมินี / สนง.บัญชี / บิลปลอม / ร้านร้าง", x: 650, y: 440, type: "stage", color: "#f59e0b", clause: "ข้อ 6 (ฉบับ 57/159/214/246)", desc: "8 เหตุผลที่เจ้าพนักงานไม่ออกใบทะเบียน เช่น ใช้ที่อยู่ สนง.บัญชี เป็นตัวแทนเชิด หรือไม่ส่งมอบเอกสาร" },
+
+      // 6. Signing Authority (ข้อ 9)
+      { id: "P_AUTH", label: "ขั้นตอน 4: ผู้มีอำนาจลงนามออกใบ ภ.พ.20", sub: "สรรพากรพื้นที่ / ผอ.กอง LTO / ผู้รับมอบหมาย", x: 920, y: 350, type: "authority", color: "#059669", clause: "ข้อ 9 (ฉบับ 57/245 & 159/246)", desc: "★ กฎหมายระบุชัดเจน: สรรพากรพื้นที่ หรือ ผอ.กองบริหารภาษีธุรกิจขนาดใหญ่ หากไม่อยู่ให้ 'ผู้ที่ได้รับมอบหมาย' เซ็นแทน" },
+
+      // 7. Forms (ข้อ 7)
+      { id: "P_FORMS", label: "ขั้นตอน 5: แบบฟอร์มใบทะเบียน", sub: "แบบ ภ.พ.20 (สนง.ใหญ่) / ภ.พ.21 (สาขา)", x: 1180, y: 260, type: "form", color: "#64748b", clause: "ข้อ 7 (ฉบับ 57/159)", desc: "กำหนดแบบฟอร์มเอกสารทางราชการ ไม่เกี่ยวข้องกับอำนาจการลงนาม (อย่าสับสนกับข้อ 9)" },
+
+      // 8. Effective Date (ข้อ 8)
+      { id: "P_EFFECTIVE", label: "ขั้นตอน 6: วันมีผลเป็นผู้ประกอบการ", sub: "วันรับคำขอ / ปริ้น ภ.พ.01 แทนชั่วคราว", x: 1180, y: 440, type: "stage", color: "#0284c7", clause: "ข้อ 8 (ฉบับ 57/159/214)", desc: "มีผลตั้งแต่วันที่ระบุในใบทะเบียน หรือใช้วันรับคำขอ โดยใช้แบบ ภ.พ.01 ที่มีเลขที่อ้างอิงเป็นใบแทนชั่วคราวได้" },
+
+      // 9. Interpretation (ข้อ 10)
+      { id: "P_INTERPRET", label: "ขั้นตอน 7: อำนาจวินิจฉัยปัญหาข้อกฎหมาย", sub: "อธิบดีกรมสรรพากร มีอำนาจชี้ขาด", x: 920, y: 550, type: "stage", color: "#d97706", clause: "ข้อ 10 (ฉบับ 57/159)", desc: "กรณีมีปัญหาในการปฏิบัติ ให้อธิบดีกรมสรรพากรเป็นผู้มีอำนาจวินิจฉัยชี้ขาด (มิใช่อำนาจเซ็นใบ ภ.พ.20)" }
+    ];
+
+    const processEdges = [
+      { source: "P_APPLICANT", target: "P_TIMING", label: "ตรวจสอบเวลา" },
+      { source: "P_SPOUSE", target: "P_CH_WALKIN", label: "ยื่นร่วมกัน" },
+      { source: "P_ONLINE_CONDO", target: "P_CH_ONLINE", label: "บังคับยื่นเน็ต" },
+      
+      { source: "P_TIMING", target: "P_CH_WALKIN", label: "เลือกช่องทาง" },
+      { source: "P_TIMING", target: "P_CH_ONLINE", label: "เลือกช่องทาง" },
+      { source: "P_TIMING", target: "P_CH_DBD", label: "เลือกช่องทาง" },
+
+      { source: "P_CH_WALKIN", target: "P_DOCS", label: "ส่งเอกสารกระดาษ" },
+      { source: "P_CH_ONLINE", target: "P_DOCS", label: "อัปโหลดเอกสาร" },
+      { source: "P_CH_DBD", target: "P_DOCS", label: "ข้อรับรอง 5 ข้อ" },
+
+      { source: "P_DOCS", target: "P_RISK", label: "ตรวจความเสี่ยง 8 ข้อ" },
+      { source: "P_RISK", target: "P_AUTH", label: "ผ่านเกณฑ์ -> เสนอลงนาม" },
+      { source: "P_AUTH", target: "P_FORMS", label: "ออกใบ ภ.พ.20 / 21" },
+      { source: "P_FORMS", target: "P_EFFECTIVE", label: "กำหนดวันมีผล" },
+      { source: "P_RISK", target: "P_INTERPRET", label: "มีข้อพิพาท/ปัญหาตีความ" }
+    ];
+
+    // View 2: EVOLUTION VIEW (The 10 Announcements Amendment Trees)
+    const evolutionNodes = [
+      { id: "E_57", label: "ฉบับที่ 57 (2537)", sub: "แม่บท Walk-in (ข้อ 1-10)", x: 220, y: 150, type: "announcement", color: "#3b82f6", desc: "กฎหมายแม่บทตั้งต้นสำหรับการยื่นกระดาษ ณ สรรพากรเขต/สาขา" },
+      { id: "E_74", label: "ฉบับที่ 74 (2539)", sub: "แก้ไขข้อ 4-10 (ครั้งที่ 1)", x: 220, y: 260, type: "announcement", color: "#60a5fa", desc: "ขยายสถานที่ยื่น และปรับแก้ข้อ 5 ถึง ข้อ 10" },
+      { id: "E_139", label: "ฉบับที่ 139 (2545)", sub: "แก้ไขข้อ 4, 9 (ครั้งที่ 2)", x: 220, y: 370, type: "announcement", color: "#60a5fa", desc: "เปลี่ยนชื่อหน่วยงานเป็น 'สรรพากรพื้นที่' และ 'สรรพากรพื้นที่สาขา'" },
+      { id: "E_165", label: "ฉบับที่ 165 (2549)", sub: "เพิ่ม LTO, แก้ข้อ 5, 9 (ครั้งที่ 3)", x: 220, y: 480, type: "announcement", color: "#60a5fa", desc: "เพิ่มกองบริหารภาษีธุรกิจขนาดใหญ่ (LTO) และปรับปรุงเอกสารนิติบุคคล" },
+      { id: "E_215", label: "ฉบับที่ 215 (2560)", sub: "แก้ 5(2) คู่สมรส, 5(5)(ก) คอนโด", x: 220, y: 590, type: "announcement", color: "#10b981", desc: "กำหนดให้คู่สมรสแนบทะเบียนสมรส และใช้อาคารชุดต้องมีหนังสือรับรองนิติบุคคล (Active Law)" },
+      { id: "E_245", label: "ฉบับที่ 245 (2565)", sub: "เพิ่ม 4/1 คอนโดออนไลน์, แก้ข้อ 9", x: 220, y: 700, type: "announcement", color: "#059669", desc: "ผู้ค้าออนไลน์คอนโดต้องยื่นเน็ต และปรับอำนาจเซ็นเป็น ผอ.กองบริหารภาษีธุรกิจขนาดใหญ่ (Active Law)" },
+
+      { id: "E_159", label: "ฉบับที่ 159 (2547)", sub: "แม่บท Online rd.go.th", x: 800, y: 220, type: "announcement", color: "#8b5cf6", desc: "กฎหมายแม่บทการจดทะเบียน VAT ผ่านอินเทอร์เน็ต" },
+      { id: "E_214", label: "ฉบับที่ 214 (2560)", sub: "แก้ 5, 6(7), 8, 9", x: 800, y: 420, type: "announcement", color: "#a855f7", desc: "เพิ่มข้อปฏิเสธ 6(7) ไม่ส่งเอกสาร, ให้พิมพ์ ภ.พ.01 เป็นใบแทนชั่วคราว" },
+      { id: "E_246", label: "ฉบับที่ 246 (2565)", sub: "ยกเว้นนิติคอนโด, 5/1 แพลตฟอร์ม, แก้ข้อ 9", x: 800, y: 620, type: "announcement", color: "#7c3aed", desc: "กฎหมายออนไลน์ปัจจุบัน: ยกเว้นหนังสือนิติคอนโด, กดยินยอมแพลตฟอร์มส่งข้อมูล, อำนาจเซ็นข้อ 9 (Active Law)" },
+
+      { id: "E_234", label: "ฉบับที่ 234 (2563)", sub: "DBD Single Window พร้อมตั้ง บ.", x: 510, y: 720, type: "announcement", color: "#ec4899", desc: "ยื่นจด VAT พร้อมจดตั้งบริษัทที่กรมพัฒน์ พร้อมลงนามข้อรับรอง 5 ข้อ (Active Law)" }
+    ];
+
+    const evolutionEdges = [
+      { source: "E_74", target: "E_57", label: "AMENDS (แก้ไข)", color: "#f43f5e" },
+      { source: "E_139", target: "E_57", label: "AMENDS", color: "#f43f5e" },
+      { source: "E_139", target: "E_74", label: "SUPERSEDES (แทนที่)", color: "#f59e0b" },
+      { source: "E_165", target: "E_57", label: "AMENDS", color: "#f43f5e" },
+      { source: "E_165", target: "E_139", label: "SUPERSEDES", color: "#f59e0b" },
+      { source: "E_215", target: "E_57", label: "AMENDS ข้อ 5", color: "#10b981" },
+      { source: "E_215", target: "E_165", label: "SUPERSEDES ข้อ 5", color: "#f59e0b" },
+      { source: "E_245", target: "E_57", label: "AMENDS ข้อ 4/1, 9", color: "#059669" },
+      { source: "E_245", target: "E_165", label: "SUPERSEDES ข้อ 9", color: "#f59e0b" },
+
+      { source: "E_214", target: "E_159", label: "AMENDS", color: "#a855f7" },
+      { source: "E_246", target: "E_159", label: "AMENDS ข้อ 5, 5/1, 9", color: "#7c3aed" },
+      { source: "E_246", target: "E_214", label: "SUPERSEDES ข้อ 5, 9", color: "#f59e0b" },
+      { source: "E_245", target: "E_159", label: "CROSS_REF (เชื่อมโยงเน็ต)", color: "#38bdf8" }
+    ];
+
+    // View 3: GROUND TRUTH VIEW (Section 9 vs Section 7 vs Section 10)
+    const groundTruthNodes = [
+      { id: "GT_QUERY", label: "คำถาม: 'ถ้าสรรพากรไม่อยู่ใครเซ็น ภ.พ.20'", sub: "มีคำค้น: ภ.พ.20, ไม่อยู่, ใครเซ็น", x: 160, y: 350, type: "query", color: "#38bdf8", desc: "ปัญหาเดิม: คำว่า 'ภ.พ.20' หลอกดึงข้อ 7 มาตอบ ทำให้ LLM มโนคำตอบเอง" },
+      
+      { id: "GT_SEC7", label: "ข้อ 7: แบบฟอร์มใบทะเบียน (ภ.พ.20)", sub: "กับดัก Semantic Collision (-0.60)", x: 550, y: 180, type: "penalty", color: "#ef4444", clause: "ข้อ 7 (ฉบับ 57 / 159)", desc: "กำหนดเพียงหน้าตาแบบฟอร์ม ภ.พ.20 (สนง.ใหญ่) และ ภ.พ.21 (สาขา) *ไม่มีเรื่องอำนาจลงนามแม้แต่คำเดียว*" },
+      { id: "GT_SEC9", label: "ข้อ 9: ผู้มีอำนาจออกใบ ภ.พ.20 (Ground Truth)", sub: "เป้าหมายที่แท้จริง (+0.45 Boost)", x: 550, y: 350, type: "boost", color: "#10b981", clause: "ข้อ 9 (ฉบับ 245 / 246)", desc: "กฎหมายระบุ: 'สรรพากรพื้นที่' หรือ 'ผอ.กองบริหารภาษีธุรกิจขนาดใหญ่' หรือ 'ผู้ที่ได้รับมอบหมายเมื่อไม่อยู่'" },
+      { id: "GT_SEC10", label: "ข้อ 10: อำนาจวินิจฉัยปัญหาของอธิบดี", sub: "อำนาจชี้ขาดปัญหากฎหมาย", x: 550, y: 520, type: "neutral", color: "#f59e0b", clause: "ข้อ 10 (ฉบับ 57 / 159)", desc: "ให้อธิบดีกรมสรรพากรมีอำนาจวินิจฉัยชี้ขาดปัญหาในทางปฏิบัติ (มิใช่อำนาจเซ็นใบ ภ.พ.20 ประจำวัน)" },
+
+      { id: "GT_OFFICER_AREA", label: "สรรพากรพื้นที่", sub: "ผู้มีอำนาจลงนามหลัก (ทั่วไป)", x: 950, y: 260, type: "role", color: "#059669", desc: "ผู้มีอำนาจลงนามสำหรับสถานประกอบการทั่วไปในเขตพื้นที่" },
+      { id: "GT_OFFICER_LTO", label: "ผอ.กองบริหารภาษีธุรกิจขนาดใหญ่", sub: "ผู้มีอำนาจลงนามหลัก (LTO)", x: 950, y: 350, type: "role", color: "#059669", desc: "ผู้มีอำนาจลงนามสำหรับผู้ประกอบการธุรกิจขนาดใหญ่" },
+      { id: "GT_OFFICER_DELEGATE", label: "ผู้ที่ได้รับมอบหมาย (เซ็นแทนได้)", sub: "รองรับตามกฎหมายเมื่อไม่อยู่", x: 950, y: 440, type: "role", color: "#10b981", desc: "กฎหมายเขียนรองรับคำว่า 'หรือผู้ที่ได้รับมอบหมาย' ไว้อย่างชัดเจนในตัวบท" },
+      { id: "GT_GENERAL_OFFICER", label: "เจ้าพนักงานสรรพากรทั่วไป", sub: "ห้ามเซ็นโดยลำพัง (Verifier Reject)", x: 950, y: 150, type: "rejected", color: "#dc2626", desc: "เจ้าพนักงานทั่วไปไม่มีอำนาจเซ็นใน ภ.พ.20 หากมิได้รับคำสั่งมอบหมายอย่างเป็นทางการ" }
+    ];
+
+    const groundTruthEdges = [
+      { source: "GT_QUERY", target: "GT_SEC7", label: "SUPPRESS (-0.60 Penalty)", color: "#ef4444" },
+      { source: "GT_QUERY", target: "GT_SEC9", label: "BOOST (+0.45 High Match)", color: "#10b981" },
+      { source: "GT_QUERY", target: "GT_SEC10", label: "IGNORE (ไม่เกี่ยวข้อง)", color: "#64748b" },
+
+      { source: "GT_SEC9", target: "GT_OFFICER_AREA", label: "กำหนดอำนาจ", color: "#10b981" },
+      { source: "GT_SEC9", target: "GT_OFFICER_LTO", label: "กำหนดอำนาจ", color: "#10b981" },
+      { source: "GT_SEC9", target: "GT_OFFICER_DELEGATE", label: "รองรับการมอบหมายเมื่อไม่อยู่", color: "#10b981" },
+      { source: "GT_SEC7", target: "GT_GENERAL_OFFICER", label: "LLM เดิมมโนว่าเซ็นได้ (ห้ามเด็ดขาด)", color: "#ef4444" }
+    ];
+
+    // Current State
+    let currentView = "process";
+    let activeNodes = processNodes;
+    let activeEdges = processEdges;
+    let selectedNode = null;
+
+    const svg = document.getElementById("graphSvg");
+
+    function renderGraph() {
+      svg.innerHTML = "";
+
+      // Defs for Arrow Markers
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      
+      const colors = ["#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#64748b", "#38bdf8", "#059669"];
+      colors.forEach(c => {
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        const cleanId = "arrow-" + c.replace("#", "");
+        marker.setAttribute("id", cleanId);
+        marker.setAttribute("viewBox", "0 0 10 10");
+        marker.setAttribute("refX", "22");
+        marker.setAttribute("refY", "5");
+        marker.setAttribute("markerWidth", "6");
+        marker.setAttribute("markerHeight", "6");
+        marker.setAttribute("orient", "auto-start-reverse");
+        
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+        path.setAttribute("fill", c);
+        marker.appendChild(path);
+        defs.appendChild(marker);
+      });
+      svg.appendChild(defs);
+
+      // Render Edges
+      const edgeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      edgeGroup.setAttribute("id", "edgeGroup");
+
+      activeEdges.forEach(e => {
+        const src = activeNodes.find(n => n.id === e.source);
+        const tgt = activeNodes.find(n => n.id === e.target);
+        if (!src || !tgt) return;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", src.x);
+        line.setAttribute("y1", src.y);
+        line.setAttribute("x2", tgt.x);
+        line.setAttribute("y2", tgt.y);
+        const edgeColor = e.color || "#475569";
+        line.setAttribute("stroke", edgeColor);
+        line.setAttribute("stroke-width", "2");
+        line.setAttribute("stroke-opacity", "0.7");
+        line.setAttribute("id", `edge-${e.source}-${e.target}`);
+        
+        const markerId = "arrow-" + edgeColor.replace("#", "");
+        line.setAttribute("marker-end", `url(#${markerId})`);
+        edgeGroup.appendChild(line);
+
+        // Edge label
+        if (e.label) {
+          const midX = (src.x + tgt.x) / 2;
+          const midY = (src.y + tgt.y) / 2 - 4;
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("x", midX);
+          text.setAttribute("y", midY);
+          text.setAttribute("fill", edgeColor);
+          text.setAttribute("font-size", "10");
+          text.setAttribute("text-anchor", "middle");
+          text.setAttribute("class", "select-none font-medium");
+          text.textContent = e.label;
+          edgeGroup.appendChild(text);
+        }
+      });
+      svg.appendChild(edgeGroup);
+
+      // Render Nodes
+      const nodeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      nodeGroup.setAttribute("id", "nodeGroup");
+
+      activeNodes.forEach(n => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "cursor-pointer transition-transform duration-200 hover:scale-105");
+        g.setAttribute("id", `node-${n.id}`);
+        g.onclick = () => selectNode(n);
+
+        // Outer glow rect / circle
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const width = 230;
+        const height = 54;
+        rect.setAttribute("x", n.x - width/2);
+        rect.setAttribute("y", n.y - height/2);
+        rect.setAttribute("width", width);
+        rect.setAttribute("height", height);
+        rect.setAttribute("rx", "12");
+        rect.setAttribute("fill", "#0f172a");
+        rect.setAttribute("stroke", n.color || "#3b82f6");
+        rect.setAttribute("stroke-width", "2");
+        rect.setAttribute("id", `rect-${n.id}`);
+        g.appendChild(rect);
+
+        // Left accent bar
+        const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bar.setAttribute("x", n.x - width/2);
+        bar.setAttribute("y", n.y - height/2);
+        bar.setAttribute("width", "6");
+        bar.setAttribute("height", height);
+        bar.setAttribute("rx", "3");
+        bar.setAttribute("fill", n.color || "#3b82f6");
+        g.appendChild(bar);
+
+        // Text: Title
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        title.setAttribute("x", n.x - width/2 + 16);
+        title.setAttribute("y", n.y - 7);
+        title.setAttribute("fill", "#ffffff");
+        title.setAttribute("font-size", "12");
+        title.setAttribute("font-weight", "600");
+        title.textContent = n.label;
+        g.appendChild(title);
+
+        // Text: Subtitle
+        const sub = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        sub.setAttribute("x", n.x - width/2 + 16);
+        sub.setAttribute("y", n.y + 12);
+        sub.setAttribute("fill", "#94a3b8");
+        sub.setAttribute("font-size", "10");
+        sub.textContent = n.sub || n.clause || "";
+        g.appendChild(sub);
+
+        nodeGroup.appendChild(g);
+      });
+      svg.appendChild(nodeGroup);
+    }
+
+    function selectNode(node) {
+      selectedNode = node;
+      document.querySelectorAll("[id^='rect-']").forEach(el => el.classList.remove("node-active"));
+      const activeRect = document.getElementById(`rect-${node.id}`);
+      if (activeRect) activeRect.classList.add("node-active");
+
+      document.getElementById("detailTitle").textContent = node.label;
+      document.getElementById("detailSubtitle").textContent = node.sub || "";
+      document.getElementById("detailType").textContent = (node.type || "NODE").toUpperCase();
+      document.getElementById("detailClauseTag").textContent = node.clause || "-";
+      document.getElementById("detailLawRef").textContent = node.clause || "ประมวลรัษฎากรและประกาศอธิบดีฯ";
+      document.getElementById("detailDesc").textContent = node.desc || "ไม่มีข้อมูลรายละเอียดเพิ่มเติม";
+
+      // Relationships
+      const relContainer = document.getElementById("detailRelationsList");
+      relContainer.innerHTML = "";
+      const connectedEdges = activeEdges.filter(e => e.source === node.id || e.target === node.id);
+      connectedEdges.forEach(e => {
+        const isSource = e.source === node.id;
+        const otherId = isSource ? e.target : e.source;
+        const otherNode = activeNodes.find(n => n.id === otherId);
+        if (otherNode) {
+          const div = document.createElement("div");
+          div.className = "flex items-center justify-between p-1.5 bg-slate-800/80 rounded border border-slate-700/60";
+          div.innerHTML = `
+            <span class="${isSource ? 'text-blue-400' : 'text-emerald-400'} font-semibold">${isSource ? '➡️ ส่งต่อไปยัง' : '⬅️ รับจาก'}</span>
+            <span class="text-slate-200 font-medium truncate max-w-[180px]">${otherNode.label}</span>
+            <span class="text-[10px] text-slate-400">(${e.label || 'เชื่อมโยง'})</span>
+          `;
+          relContainer.appendChild(div);
+        }
+      });
+
+      document.getElementById("badgeStatus").textContent = "กำลังดู: " + node.label;
+    }
+
+    function switchView(viewName) {
+      currentView = viewName;
+      document.querySelectorAll(".view-btn").forEach(b => {
+        b.classList.remove("active", "bg-blue-600", "text-white");
+        b.classList.add("text-slate-300");
+      });
+
+      const filterBar = document.getElementById("channelFilterBar");
+
+      if (viewName === "process") {
+        document.getElementById("btnViewProcess").classList.add("active", "bg-blue-600", "text-white");
+        activeNodes = processNodes;
+        activeEdges = processEdges;
+        filterBar.classList.remove("hidden");
+      } else if (viewName === "evolution") {
+        document.getElementById("btnViewEvolution").classList.add("active", "bg-blue-600", "text-white");
+        activeNodes = evolutionNodes;
+        activeEdges = evolutionEdges;
+        filterBar.classList.add("hidden");
+      } else if (viewName === "groundtruth") {
+        document.getElementById("btnViewGroundTruth").classList.add("active", "bg-blue-600", "text-white");
+        activeNodes = groundTruthNodes;
+        activeEdges = groundTruthEdges;
+        filterBar.classList.add("hidden");
+      }
+      renderGraph();
+      if (activeNodes.length > 0) selectNode(activeNodes[0]);
+    }
+
+    function filterChannel(channel) {
+      document.querySelectorAll(".chan-btn").forEach(b => {
+        b.classList.remove("active", "bg-blue-600", "text-white");
+        b.classList.add("bg-slate-800", "text-slate-300");
+      });
+      event.target.classList.add("active", "bg-blue-600", "text-white");
+      event.target.classList.remove("bg-slate-800", "text-slate-300");
+
+      if (channel === "all") {
+        activeNodes = processNodes;
+        activeEdges = processEdges;
+      } else if (channel === "walkin") {
+        activeNodes = processNodes.filter(n => n.id !== "P_CH_ONLINE" && n.id !== "P_CH_DBD" && n.id !== "P_ONLINE_CONDO");
+        activeEdges = processEdges.filter(e => e.source !== "P_CH_ONLINE" && e.target !== "P_CH_ONLINE" && e.source !== "P_CH_DBD" && e.target !== "P_CH_DBD");
+      } else if (channel === "online") {
+        activeNodes = processNodes.filter(n => n.id !== "P_CH_WALKIN" && n.id !== "P_CH_DBD");
+        activeEdges = processEdges.filter(e => e.source !== "P_CH_WALKIN" && e.target !== "P_CH_WALKIN" && e.source !== "P_CH_DBD" && e.target !== "P_CH_DBD");
+      } else if (channel === "dbd") {
+        activeNodes = processNodes.filter(n => n.id !== "P_CH_WALKIN" && n.id !== "P_CH_ONLINE" && n.id !== "P_ONLINE_CONDO");
+        activeEdges = processEdges.filter(e => e.source !== "P_CH_WALKIN" && e.target !== "P_CH_WALKIN" && e.source !== "P_CH_ONLINE" && e.target !== "P_CH_ONLINE");
+      }
+      renderGraph();
+    }
+
+    function runSimulation(simKey) {
+      const reasoningBox = document.getElementById("aiReasoningBox");
+      reasoningBox.classList.remove("hidden");
+      const collisionAlert = document.getElementById("aiCollisionAlert");
+      collisionAlert.classList.add("hidden");
+
+      if (simKey === "authority_absent") {
+        switchView("groundtruth");
+        document.getElementById("aiQueryText").textContent = "คำถาม: 'ถ้าสรรพากรไม่อยู่ใครเซ็น ภ.พ.20'";
+        document.getElementById("aiAnswerText").innerHTML = `
+          <strong>คำตอบที่ผ่านการ Verify (Agent 4 & 5):</strong><br>
+          ผู้มีอำนาจออกใบ ภ.พ.20 ได้แก่ <strong>สรรพากรพื้นที่</strong> หรือ <strong>ผอ.กองบริหารภาษีธุรกิจขนาดใหญ่ (LTO)</strong><br>
+          กรณีไม่อยู่: กฎหมายบัญญัติชัดเจนว่าให้ <strong>'ผู้ที่ได้รับมอบหมาย'</strong> (หรือผู้ปฏิบัติราชการแทน) ลงนามแทนได้<br>
+          <em class="text-slate-400 mt-1 block">[อ้างอิง: ข้อ 9 แห่งประกาศฯ (ฉบับที่ 57/245) และ (ฉบับที่ 159/246)]</em>
+        `;
+        document.getElementById("activeChunksList").innerHTML = `
+          <li><span class="text-emerald-400 font-mono">VAT245_ART_02</span> (ฉบับ 245 ข้อ 2 แก้ไขข้อ 9 ฉบับ 57) - Score: 1.83</li>
+          <li><span class="text-emerald-400 font-mono">VAT246_ART_05</span> (ฉบับ 246 ข้อ 5 แก้ไขข้อ 9 ฉบับ 159) - Score: 1.83</li>
+          <li><span class="text-emerald-400 font-mono">VAT57_ART_09</span> (ฉบับ 57 ข้อ 9 กฎหมายตั้งต้น) - Score: 1.58</li>
+        `;
+        collisionAlert.classList.remove("hidden");
+        document.getElementById("aiCollisionText").textContent = "สกัดกั้น Semantic Collision สำเร็จ! ระบบได้ลดคะแนนข้อ 7 (VAT57_ART_07) ลง -0.60 เพื่อป้องกันไม่ให้คำว่า 'ภ.พ.20' ดึงแบบฟอร์มเปล่ามาให้ LLM มโน";
+        selectNode(groundTruthNodes.find(n => n.id === "GT_SEC9"));
+      } else if (simKey === "prepare_docs") {
+        switchView("process");
+        document.getElementById("aiQueryText").textContent = "คำถาม: 'จด vat ต้องเตรียมเอกสารอะไรไปยื่น'";
+        document.getElementById("aiAnswerText").innerHTML = `
+          <strong>คำตอบที่ผ่านการ Verify (ข้อ 5):</strong><br>
+          1. บัตร ปชช. และทะเบียนบ้านผู้ประกอบการ (คู่สมรสแนบทะเบียนสมรส / คณะบุคคลแนบสัญญาจัดตั้ง)<br>
+          2. เอกสารสถานที่: ทะเบียนบ้านที่ตั้ง, สัญญาเช่า/ยินยอม, แผนที่ และภาพถ่ายป้ายชื่อสถานประกอบการ<br>
+          3. มอบอำนาจ: หนังสือมอบอำนาจปิดอากรแสตมป์ 10-30 บาท
+        `;
+        document.getElementById("activeChunksList").innerHTML = `
+          <li><span class="text-emerald-400 font-mono">VAT215_ART_01</span> (ข้อ 5(2) คู่สมรส/คณะบุคคล) - Score: 0.78</li>
+          <li><span class="text-emerald-400 font-mono">VAT215_ART_02</span> (ข้อ 5(5)(ก) ป้ายชื่อและคอนโด) - Score: 0.70</li>
+          <li><span class="text-emerald-400 font-mono">VAT246_ART_02_C</span> (ข้อ 5(4) ยกเว้นนิติคอนโดออนไลน์) - Score: 0.70</li>
+        `;
+        selectNode(processNodes.find(n => n.id === "P_DOCS"));
+      } else if (simKey === "online_condo") {
+        switchView("process");
+        document.getElementById("aiQueryText").textContent = "คำถาม: 'ขายของออนไลน์อยู่คอนโด ยื่นที่ไหนและใช้อะไร'";
+        document.getElementById("aiAnswerText").innerHTML = `
+          <strong>คำตอบสิทธิพิเศษคอนโด (ฉบับ 245 & 246):</strong><br>
+          1. สถานที่ยื่น: บังคับยื่นผ่านระบบอินเทอร์เน็ตที่ <strong>rd.go.th เท่านั้น</strong> ตามข้อ 4/1 (ฉบับที่ 245)<br>
+          2. สิทธิพิเศษ: <strong>ได้รับยกเว้นไม่ต้องแนบหนังสือรับรองนิติคอนโด</strong> ตามข้อ 5(4) วรรคท้าย (ฉบับที่ 246)
+        `;
+        document.getElementById("activeChunksList").innerHTML = `
+          <li><span class="text-purple-400 font-mono">VAT245_ART_01</span> (ข้อ 4/1 ผู้ค้าออนไลน์คอนโดต้องยื่นเน็ต)</li>
+          <li><span class="text-purple-400 font-mono">VAT246_ART_02_C</span> (ข้อ 5(4) ยกเว้นหนังสือนิติคอนโด)</li>
+        `;
+        selectNode(processNodes.find(n => n.id === "P_ONLINE_CONDO"));
+      } else if (simKey === "risk_accounting_office") {
+        switchView("process");
+        document.getElementById("aiQueryText").textContent = "คำถาม: 'ใช้ที่ตั้ง สนง.บัญชี และลูกจ้างเป็นกรรมการ'";
+        document.getElementById("aiAnswerText").innerHTML = `
+          <strong class="text-amber-400">แจ้งเตือนความเสี่ยงตามข้อ 6 (Agent 6 Tier: YELLOW):</strong><br>
+          เข้าข่ายเหตุไม่ออกใบทะเบียน ภ.พ.20 2 ข้อ:<br>
+          (2) ต้องสงสัยเป็นตัวแทนเชิด (นอมินี / ลูกจ้างเป็นกรรมการ)<br>
+          (4) ใช้สำนักงานบัญชีหรือสำนักงานกฎหมายเป็นที่ตั้งสถานประกอบการ<br>
+          <em>คำสั่ง: สั่งระงับการออกใบอัตโนมัติ และแจ้งเจ้าหน้าที่ลงพื้นที่ตรวจสถานที่จริง</em>
+        `;
+        document.getElementById("activeChunksList").innerHTML = `
+          <li><span class="text-amber-400 font-mono">VAT159_ART_06</span> (ข้อ 6 การตรวจสอบและ 8 เหตุผลที่ไม่ออกใบทะเบียน)</li>
+        `;
+        selectNode(processNodes.find(n => n.id === "P_RISK"));
+      } else if (simKey === "dbd_single") {
+        switchView("process");
+        document.getElementById("aiQueryText").textContent = "คำถาม: 'เปิดบริษัทที่ DBD จด VAT พร้อมกันได้ไหม'";
+        document.getElementById("aiAnswerText").innerHTML = `
+          <strong>คำตอบการจดทะเบียนช่องทาง DBD Single Window (ฉบับ 234):</strong><br>
+          สามารถยื่นจด VAT พร้อมจัดตั้งบริษัทได้ที่กรมพัฒนาธุรกิจการค้าทันที โดยต้องลงนามใน <strong>ข้อรับรอง 5 ประการ</strong> เช่น มีสถานที่จริง ไม่ใช้ที่อยู่ สนง.บัญชี และไม่เคยมีประวัติออกบิลปลอม
+        `;
+        document.getElementById("activeChunksList").innerHTML = `
+          <li><span class="text-pink-400 font-mono">VAT234_ART_01</span> (ข้อ 1 ยื่นคำขอจด VAT พร้อมจัดตั้งนิติบุคคล ณ DBD)</li>
+          <li><span class="text-pink-400 font-mono">VAT234_ART_ATTACHMENT</span> (แบบข้อรับรอง 5 ประการ)</li>
+        `;
+        selectNode(processNodes.find(n => n.id === "P_CH_DBD"));
+      }
+    }
+
+    function resetGraph() {
+      document.getElementById("aiReasoningBox").classList.add("hidden");
+      switchView("process");
+    }
+
+    // Initialize
+    window.onload = () => {
+      renderGraph();
+      selectNode(processNodes[0]);
+    };
+  </script>
+</body>
+</html>
