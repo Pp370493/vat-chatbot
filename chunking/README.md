@@ -105,7 +105,7 @@ python chunking/scripts/build_graph_data.py --out /tmp/graph_data.json --html ch
 
 รวม chunk 75 ชิ้น (role/amends จาก `annotate_roles.py`), `graph_rag_vat_registration.json`, พจนานุกรมคำพ้อง
 และผลชุดทดสอบ (`eval_retrieval.py` โหมด primary) เป็นหน้าเดียว [`reports/graph_view.html`](reports/graph_view.html):
-ตารางสายการแก้ไข (ฉบับ × ข้อ), เครือข่ายทั้งหมด และ "จุดที่ต้องตรวจ" = จุดที่แหล่งข้อมูลขัดกันเอง
+3 ชั้น: ช่องทาง → หัวข้อ › ข้อกฎหมายแต่ละช่องทางพร้อมสายการแก้ไข › ตัวบทเต็ม (ทุกจุดแสดงเป็นสรุปภาษาคน) และ "ประเด็นที่ต้องตรวจ" = จุดที่แหล่งข้อมูลขัดกันเอง
 (เช่น graph บอกว่ายังมีผลแต่ตัวบทถูกแทนที่แล้ว) ให้คนตัดสินว่าแหล่งไหนถูก
 
 ## รันต้นแบบ
