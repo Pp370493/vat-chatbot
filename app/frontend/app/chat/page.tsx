@@ -174,14 +174,18 @@ export default function ChatPage() {
     }
   }, []);
 
-  // Smooth scroll strictly inside chat container without moving window
+  // เลื่อนเฉพาะในกล่องข้อความ: ข้อความใหม่ที่ยาวเกินจอ (เช่น ฟอร์มถามกลับ คำตอบยาว) ให้เห็นต้นข้อความก่อน
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+    const box = chatContainerRef.current;
+    if (!box) return;
+    const all = box.querySelectorAll<HTMLElement>("[data-msg]");
+    const last = all[all.length - 1];
+    let top = box.scrollHeight;
+    if (last && !isLoading) {
+      const start = last.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12;
+      if (last.offsetHeight > box.clientHeight - 24) top = start;
     }
+    box.scrollTo({ top, behavior: "smooth" });
   }, [messages, isLoading]);
 
   // ข้อ 3: เปิด Confirm Dialog ก่อนเริ่มข้อหารือใหม่
@@ -722,6 +726,7 @@ export default function ChatPage() {
           {messages.map((msg) => (
             <div
               key={msg.id}
+              data-msg={msg.sender}
               className={`flex gap-3 max-w-3xl ${
                 msg.sender === "user" ? "ml-auto justify-end" : "mr-auto justify-start"
               }`}
@@ -941,7 +946,7 @@ export default function ChatPage() {
               <Lock className="w-3 h-3 text-emerald-600" />
               100% Local Inference • ปลอดภัยไม่ส่งข้อมูลออกนอกเครื่อง • PII Redacted
             </span>
-            <span>กดปุ่ม Enter เพื่อส่ง</span>
+            <span>กดปุ่ม Enter เพื่อส่ง · เวอร์ชัน {process.env.NEXT_PUBLIC_BUILD_ID}</span>
           </div>
         </div>
       </section>
