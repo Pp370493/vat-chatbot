@@ -70,10 +70,38 @@ def test_internet_reply_is_merged(pipeline):
 def test_purpose_reply_pp01_is_merged(pipeline):
     first = pipeline.run_pipeline("ยื่นแบบกระดาษต้องใช้เอกสารอะไร", session_id="t7")
     assert first["payload"].get("clarification_type") == "purpose"
-    res = pipeline.run_pipeline("ยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มใหม่ (แบบ ภ.พ.01)", session_id="t7",
-                                conversation_id=first["conversation_id"])
+    second = pipeline.run_pipeline("ยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มใหม่ (แบบ ภ.พ.01)", session_id="t7",
+                                   conversation_id=first["conversation_id"])
+    # คำถามเรื่องเอกสารที่ยังไม่รู้ประเภทผู้ยื่น → ฟอร์มถามผู้ยื่น (ช่องทางรู้แล้วว่ากระดาษ จึงไม่ถามช่องทาง)
+    assert second["type"] == "clarification" and second["payload"]["clarification_type"] == "form"
+    assert [g["key"] for g in second["payload"]["form"]["groups"]] == ["applicant", "premises"]
+    assert "ใช้เอกสารอะไร" in second["resolved_query"] and "ภ.พ.01" in second["resolved_query"]
+    res = pipeline.run_pipeline("ผู้ยื่น: นิติบุคคล (บริษัท / ห้างหุ้นส่วนนิติบุคคล) · สถานประกอบการ: เช่าสถานที่",
+                                session_id="t7", conversation_id=first["conversation_id"])
     assert res["type"] == "answer"
-    assert "ใช้เอกสารอะไร" in res["resolved_query"]
+    assert "ใช้เอกสารอะไร" in res["resolved_query"] and "ผู้ยื่น: นิติบุคคล" in res["resolved_query"]
+    assert "สถานประกอบการ: เช่าสถานที่" in res["resolved_query"]
+    assert res["payload"]["offer_checklist"] is True
+
+
+def test_channel_and_applicant_asked_in_one_form(pipeline):
+    first = pipeline.run_pipeline("จด vat ต้องเตรียมเอกสารอะไรไปยื่น", session_id="t7b")
+    keys = [g["key"] for g in first["payload"]["form"]["groups"]]
+    assert keys == ["channel", "applicant", "premises"]
+    assert [o["value"] for o in first["payload"]["form"]["groups"][0]["options"]] == ["paper", "internet", "dbd"]
+    res = pipeline.run_pipeline(
+        "ช่องทาง: ยื่นผ่านอินเทอร์เน็ต www.rd.go.th (ฉบับที่ 159) · ผู้ยื่น: บุคคลธรรมดาสัญชาติไทย · "
+        "สถานประกอบการ: ห้องชุด / คอนโด, เช่าสถานที่", session_id="t7b", conversation_id=first["conversation_id"])
+    assert res["type"] == "answer"
+    rq = res["resolved_query"]
+    assert "ฉบับที่ 159" in rq and "ผู้ยื่น: บุคคลธรรมดาสัญชาติไทย" in rq and "ห้องชุด / คอนโด, เช่าสถานที่" in rq
+
+
+def test_offer_checklist_only_for_document_answers(pipeline):
+    res = pipeline.run_pipeline("ถ้าสรรพากรไม่อยู่ใครเซ็น ภ.พ.20", session_id="t7c")
+    assert res["type"] == "answer" and res["payload"]["offer_checklist"] is False
+    res = pipeline.run_pipeline("จ้างคนขับรถมาเป็นกรรมการแทนเพื่อจด vat ต้องใช้เอกสารอะไร", session_id="t7d")
+    assert res["type"] == "pending_review" and "offer_checklist" not in res["payload"]
 
 
 def test_advance_registration_skips_channel_question(pipeline):

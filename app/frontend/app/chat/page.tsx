@@ -18,10 +18,14 @@ import {
   History,
   Lock,
   CheckSquare,
+  Network,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import ChecklistAssistantModal from "../components/ChecklistAssistantModal";
+import ClarifyForm, { ClarifyFormSpec, FALLBACK_CHANNEL_FORM } from "../components/ClarifyForm";
 import { apiFetch } from "../lib/api";
 
 interface Citation {
@@ -51,6 +55,9 @@ interface Message {
   is_clarification?: boolean;
   clarification_type?: string;
   relevant_articles?: LawSection[];
+  form?: ClarifyFormSpec;
+  offer_checklist?: boolean;
+  checklist_choice?: "yes" | "no";
 }
 
 interface RecentInquiry {
@@ -101,6 +108,8 @@ export default function ChatPage() {
 
   // Agent 7: Checklist Assistant Modal State
   const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [highlightAgent7, setHighlightAgent7] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
 
   const handlePostSummaryToChat = (summaryText: string) => {
     const summaryMsg: Message = {
@@ -238,6 +247,26 @@ export default function ChatPage() {
       });
   }, []);
 
+  // คำตอบของกล่อง "ต้องการตรวจเอกสารด้วย Agent 7 เลยไหม"
+  const handleChecklistChoice = (msgId: string, choice: "yes" | "no") => {
+    setMessages((prev) => {
+      const next = prev.map((m) => (m.id === msgId ? { ...m, checklist_choice: choice } : m));
+      if (choice === "yes") {
+        next.push({
+          id: `agent7-hint-${Date.now()}`,
+          sender: "assistant",
+          text: "กดปุ่ม \"📋 ตรวจเอกสาร ภ.พ.01 (Agent 7)\" ที่แถบด้านซ้ายได้เลยค่ะ ระบบจะสร้างรายการเอกสารตามข้อ 5 ให้ทำเครื่องหมายว่าได้รับครบหรือยัง",
+          type: "answer",
+        });
+      }
+      return next;
+    });
+    if (choice === "yes") {
+      setHighlightAgent7(true);
+      setTimeout(() => setHighlightAgent7(false), 6000);
+    }
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend || inputText;
     if (!text.trim() || isLoading) return;
@@ -291,6 +320,8 @@ export default function ChatPage() {
           is_clarification: !!payload.is_clarification || data.type === "clarification",
           clarification_type: payload.clarification_type,
           relevant_articles: payload.relevant_articles || [],
+          form: payload.form,
+          offer_checklist: !!payload.offer_checklist,
         };
         setMessages((prev) => [...prev, assistantMsg]);
 
@@ -349,13 +380,13 @@ export default function ChatPage() {
           type: "answer",
           tier: "auto_answer",
           trust_score: 1.0,
+          offer_checklist: true,
           citations: [
             { text_span: "ประกาศอธิบดีฯ VAT (ฉบับที่ 57) ข้อ 5", source_section: "ประกาศอธิบดีฯ VAT (ฉบับที่ 57) ข้อ 5" },
             { text_span: "ประกาศอธิบดีฯ VAT (ฉบับที่ 159) ข้อ 5", source_section: "ประกาศอธิบดีฯ VAT (ฉบับที่ 159) ข้อ 5" },
           ],
         };
         setMessages((prev) => [...prev, formAssistMsg]);
-        setShowChecklistModal(true);
       }
 
       // รีเฟรชประวัติ 5 รายการล่าสุดใน Sidebar
@@ -488,8 +519,8 @@ export default function ChatPage() {
         {/* Agent 7: Checklist Assistant Button */}
         <div className="p-3 border-b border-slate-800 flex-shrink-0">
           <button
-            onClick={() => setShowChecklistModal(true)}
-            className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 bg-gradient-to-r from-indigo-700 to-blue-700 hover:from-indigo-600 hover:to-blue-600 text-white rounded-xl text-xs font-bold transition shadow-sm border border-indigo-500/30 group"
+            onClick={() => { setHighlightAgent7(false); setShowChecklistModal(true); }}
+            className={`w-full flex items-center justify-center gap-2 px-3.5 py-2.5 ${highlightAgent7 ? "ring-4 ring-amber-400 animate-pulse" : ""} bg-gradient-to-r from-indigo-700 to-blue-700 hover:from-indigo-600 hover:to-blue-600 text-white rounded-xl text-xs font-bold transition shadow-sm border border-indigo-500/30 group`}
           >
             <CheckSquare className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform" />
             <span>📋 ตรวจเอกสาร ภ.พ.01 (Agent 7)</span>
@@ -662,7 +693,7 @@ export default function ChatPage() {
             โหมดเดโม — ไม่ได้เชื่อมระบบจริง คำตอบเป็นข้อความสำเร็จรูปแบบคำสำคัญ ไม่ได้บันทึกและไม่ได้ส่งเข้าคิวหัวหน้างาน
           </div>
         )}
-        {/* Chat Header Toolbar with Agent 7 Quick Trigger */}
+        {/* Chat Header Toolbar with Graph RAG */}
         <div className="bg-white px-4 py-2.5 border-b border-slate-200 flex items-center justify-between flex-shrink-0 shadow-xs z-10">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -672,11 +703,11 @@ export default function ChatPage() {
           </div>
 
           <button
-            onClick={() => setShowChecklistModal(true)}
+            onClick={() => setShowGraph(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition shadow-xs"
           >
-            <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
-            <span>📋 ตัวช่วยตรวจ Checklist เอกสาร (Agent 7)</span>
+            <Network className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Graph RAG ความสัมพันธ์ประกาศ</span>
           </button>
         </div>
 
@@ -716,67 +747,6 @@ export default function ChatPage() {
                     <p className="whitespace-pre-wrap">{msg.text}</p>
                   )}
 
-                  {/* Quick Starter Chips for Welcome Message */}
-                  {msg.id === "welcome" && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-                      <div className="text-[11px] font-bold text-slate-500">
-                        💡 คลิกเลือกตัวอย่างคำถามเพื่อทดสอบระบบทันที:
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "กำลังสร้างโรงงานเพื่อเตรียมเปิดกิจการผลิตสินค้า สามารถยื่นขอจดทะเบียน VAT ล่วงหน้าได้ก่อนเริ่มกิจการกี่เดือน"
-                            )
-                          }
-                          className="p-2.5 rounded-xl bg-blue-50/80 hover:bg-blue-100 border border-blue-200/80 text-left transition group"
-                        >
-                          <div className="text-[10px] font-bold text-blue-700 flex items-center gap-1">
-                            <span>🔵</span>
-                            <span>กลุ่ม 1: In-Scope VAT</span>
-                          </div>
-                          <div className="text-xs text-slate-700 font-medium line-clamp-2 mt-1">
-                            กำลังสร้างโรงงาน ยื่นขอจด VAT ล่วงหน้าได้กี่เดือน
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "เจ้าของตัวจริงติดแบล็กลิสต์ เลยจะให้ลูกจ้างพนักงานรายวันลงชื่อเป็นกรรมการผู้จัดการเพื่อยื่นขอจดทะเบียน VAT แทนได้ไหม"
-                            )
-                          }
-                          className="p-2.5 rounded-xl bg-amber-50/80 hover:bg-amber-100 border border-amber-200/80 text-left transition group"
-                        >
-                          <div className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
-                            <span>🟠</span>
-                            <span>กลุ่ม 2: เสี่ยงสูง/ข้อ 6</span>
-                          </div>
-                          <div className="text-xs text-slate-700 font-medium line-clamp-2 mt-1">
-                            ติดแบล็กลิสต์ ให้ลูกจ้างลงชื่อเป็น กก.ผจก. ยื่นแทนได้ไหม
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "หากต้องการยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดาประจำปี (ภ.ง.ด.90/91) มีขั้นตอนการยื่นและหักลดหย่อนอย่างไร"
-                            )
-                          }
-                          className="p-2.5 rounded-xl bg-rose-50/80 hover:bg-rose-100 border border-rose-200/80 text-left transition group"
-                        >
-                          <div className="text-[10px] font-bold text-rose-700 flex items-center gap-1">
-                            <span>🔴</span>
-                            <span>กลุ่ม 3: นอกขอบเขต</span>
-                          </div>
-                          <div className="text-xs text-slate-700 font-medium line-clamp-2 mt-1">
-                            ยื่นแบบภาษีเงินได้บุคคลธรรมดา (ภ.ง.ด.90/91) อย่างไร
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Citations Tag inside bubble (ไม่แสดงสำหรับเคสเสี่ยง) */}
                   {msg.type !== "pending_review" && msg.citations && msg.citations.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
@@ -800,142 +770,41 @@ export default function ChatPage() {
                     </div>
                   )}
 
-                  {/* กล่องถามเพื่อยืนยันวัตถุประสงค์ (Purpose Confirmation) กรณีถามยื่นแบบกระดาษโดยไม่ได้ระบุว่าคือ ภ.พ.01 */}
-                  {(msg.type === "clarification" || msg.is_clarification) &&
-                    (msg.clarification_type === "purpose" || msg.text?.includes("ยื่นแบบกระดาษในเรื่องใด") || msg.text?.includes("ติดต่อยื่นแบบในเรื่องใด")) && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5">
-                      <div className="text-[11.5px] font-bold text-amber-800 flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4 text-amber-600 animate-pulse" />
-                        <span>กรุณาคลิกเลือกประเภทแบบแสดงรายการหรือคำขอที่ประสงค์จะยื่น:</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "ยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มใหม่ (แบบ ภ.พ.01)"
-                            )
-                          }
-                          className="p-3 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-900 border border-blue-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
-                        >
-                          <div className="font-bold text-xs flex items-center gap-1.5">
-                            <span>📄</span>
-                            <span>1. จดทะเบียน VAT ใหม่ (แบบ ภ.พ.01)</span>
-                          </div>
-                          <div className="text-[11px] text-blue-700 font-medium mt-1">ณ สำนักงานสรรพากรพื้นที่ (ฉบับที่ 57)</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">ขอเข้าสู่ระบบ VAT ครั้งแรก พร้อมใช้เอกสารตามข้อ 5</div>
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "ต้องการแจ้งเปลี่ยนแปลงข้อมูลทะเบียนภาษีมูลค่าเพิ่ม (แบบ ภ.พ.09)"
-                            )
-                          }
-                          className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
-                        >
-                          <div className="font-bold text-xs flex items-center gap-1.5">
-                            <span>📝</span>
-                            <span>2. แจ้งเปลี่ยนแปลงข้อมูล (แบบ ภ.พ.09)</span>
-                          </div>
-                          <div className="text-[11px] text-slate-600 font-medium mt-1">ย้ายร้าน / เปลี่ยนชื่อ / เพิ่ม-ปิดสาขา</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">ยื่นภายใน 15 วันนับแต่วันที่เปลี่ยนแปลง</div>
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "ต้องการยื่นแบบแสดงรายการและชำระภาษีมูลค่าเพิ่ม (แบบ ภ.พ.30)"
-                            )
-                          }
-                          className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
-                        >
-                          <div className="font-bold text-xs flex items-center gap-1.5">
-                            <span>📊</span>
-                            <span>3. ยื่นภาษีประจำเดือน (แบบ ภ.พ.30)</span>
-                          </div>
-                          <div className="text-[11px] text-slate-600 font-medium mt-1">ยื่นแบบและเสียภาษีรายเดือน</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">ยื่นภายในวันที่ 15 หรือ 23 ผ่าน e-Filing</div>
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "ต้องการยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดาประจำปี (ภ.ง.ด.90/91)"
-                            )
-                          }
-                          className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
-                        >
-                          <div className="font-bold text-xs flex items-center gap-1.5">
-                            <span>💼</span>
-                            <span>4. ยื่นภาษีเงินได้ (ภ.ง.ด.)</span>
-                          </div>
-                          <div className="text-[11px] text-slate-600 font-medium mt-1">ภาษีเงินได้บุคคล / นิติบุคคล</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">ภ.ง.ด.90/91/50/51 ประจำปี</div>
-                        </button>
-                      </div>
-                    </div>
+                  {/* ฟอร์มถามกลับแบบ checkbox (ตัวเลือกมาจาก backend) */}
+                  {(msg.type === "clarification" || msg.is_clarification) && (
+                    <ClarifyForm
+                      spec={msg.form || FALLBACK_CHANNEL_FORM}
+                      disabled={isLoading}
+                      onSubmit={(reply) => handleSendMessage(reply)}
+                    />
                   )}
 
-                  {/* กล่องถามเพื่อเลือกช่องทาง (Channel Selection) กรณีจด VAT แต่ไม่ระบุกระดาษหรืออินเทอร์เน็ต */}
-                  {(msg.type === "clarification" || msg.is_clarification) &&
-                    msg.clarification_type !== "purpose" &&
-                    !msg.text?.includes("ยื่นแบบกระดาษในเรื่องใด") &&
-                    !msg.text?.includes("ติดต่อยื่นแบบในเรื่องใด") && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5">
-                      <div className="text-[11.5px] font-bold text-blue-800 flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
-                        <span>กรุณาคลิกเลือกช่องทางที่ประสงค์จะยื่นคำขอจดทะเบียน:</span>
+                  {/* เสนอให้ตรวจเอกสารด้วย Agent 7 (คำถามเรื่องเอกสาร) */}
+                  {msg.offer_checklist && (
+                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                      <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                        <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>ต้องการตรวจเอกสารด้วยตัวช่วยตรวจเอกสาร (Agent 7) เลยไหม</span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "ยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ (ฉบับที่ 57)"
-                            )
-                          }
-                          className="p-3.5 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-900 border border-blue-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
-                        >
-                          <div className="font-bold text-xs flex items-center gap-1.5">
-                            <span>📄</span>
-                            <span>1. ยื่นแบบกระดาษ (ประกาศ ฉบับที่ 57)</span>
-                          </div>
-                          <div className="text-[11px] text-blue-700 font-medium mt-1">ณ สำนักงานสรรพากรพื้นที่ / สาขา</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">ใช้คำขอแบบ ภ.พ.01 จำนวน 3 ฉบับ พร้อมแสดงเอกสารตัวจริง</div>
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleSendMessage(
-                              "ยื่นผ่านอินเทอร์เน็ต www.rd.go.th (ฉบับที่ 159)"
-                            )
-                          }
-                          className="p-3.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
-                        >
-                          <div className="font-bold text-xs flex items-center gap-1.5">
-                            <span>🌐</span>
-                            <span>2. ผ่านระบบอินเทอร์เน็ต (ประกาศ ฉบับที่ 159)</span>
-                          </div>
-                          <div className="text-[11px] text-emerald-700 font-medium mt-1">ทางเว็บไซต์ www.rd.go.th</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">กรอกคำขอและแนบไฟล์เอกสารผ่านระบบออนไลน์</div>
-                        </button>
+                      <div className="flex flex-wrap gap-2">
+                        {(["yes", "no"] as const).map((v) => (
+                          <label
+                            key={v}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition ${
+                              msg.checklist_choice ? "cursor-default" : "cursor-pointer hover:bg-slate-50"
+                            } ${msg.checklist_choice === v ? "bg-indigo-50 border-indigo-400 font-semibold" : "bg-white border-slate-200"}`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-3.5 h-3.5 accent-indigo-600"
+                              checked={msg.checklist_choice === v}
+                              disabled={!!msg.checklist_choice}
+                              onChange={() => handleChecklistChoice(msg.id, v)}
+                            />
+                            <span>{v === "yes" ? "ใช่" : "ไม่ใช่"}</span>
+                          </label>
+                        ))}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Agent 7 Interactive Checklist Trigger inside bubble */}
-                  {(msg.type === "form_assist" || msg.text?.includes("Agent 7") || msg.text?.includes("Checklist") || msg.text?.includes("ตรวจเอกสาร")) && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                      <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
-                        <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-                        <span>เครื่องมือตรวจรับเอกสารตามข้อ 5</span>
-                      </div>
-                      <button
-                        onClick={() => setShowChecklistModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition shadow-xs"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        <span>เปิดระบบตรวจ Checklist (Agent 7)</span>
-                      </button>
                     </div>
                   )}
 
@@ -1161,6 +1030,29 @@ export default function ChatPage() {
           )}
         </div>
       </aside>
+
+      {/* Graph RAG: ความสัมพันธ์ประกาศ (หน้า public/graph-rag.html) */}
+      {showGraph && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-stretch justify-center p-2 sm:p-6" role="dialog" aria-label="Graph RAG ความสัมพันธ์ประกาศ">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                <Network className="w-4 h-4 text-indigo-600" />
+                Graph RAG ความสัมพันธ์ประกาศอธิบดีฯ VAT
+              </div>
+              <div className="flex items-center gap-2">
+                <a href="/graph-rag.html" target="_blank" rel="noopener" className="flex items-center gap-1 text-xs text-indigo-700 hover:underline">
+                  <ExternalLink className="w-3.5 h-3.5" /> เปิดในแท็บใหม่
+                </a>
+                <button onClick={() => setShowGraph(false)} className="p-1.5 rounded-lg hover:bg-slate-100" aria-label="ปิด">
+                  <X className="w-4 h-4 text-slate-600" />
+                </button>
+              </div>
+            </div>
+            <iframe src="/graph-rag.html" title="Graph RAG" className="flex-1 w-full border-0" />
+          </div>
+        </div>
+      )}
 
       {/* Agent 7: Checklist Assistant Modal */}
       <ChecklistAssistantModal

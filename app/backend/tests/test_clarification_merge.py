@@ -1,4 +1,5 @@
 from app.agents import agent6_risk_tier as a6
+from app.graph import clarify as cl
 from app.graph.pipeline_graph import detect_channel, merge_clarification_reply
 
 CH = [{"resolved_query": "จด vat ต้องใช้เอกสารอะไร",
@@ -54,3 +55,28 @@ def test_build_review_brief_without_clause():
     risk = {"risk_factors": [], "tier": "senior_review", "risk_score": 0, "trust_score": 0.2}
     out = a6.build_review_brief("q", [], risk, [])
     assert "ไม่พบเหตุตามข้อ 6" in out["draft_text"]
+
+
+FORM = [{"resolved_query": "จด vat ต้องใช้เอกสารอะไร", "answer_summary": "สอบถามข้อมูลก่อนตอบ (ช่องทาง, ผู้ยื่น, สถานประกอบการ)"}]
+
+
+def test_merge_form_reply_all_groups():
+    out = merge_clarification_reply(
+        "ช่องทาง: ยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ (ฉบับที่ 57) · ผู้ยื่น: บุคคลธรรมดาต่างด้าว · "
+        "สถานประกอบการ: เช่าสถานที่, มอบอำนาจให้ผู้อื่นยื่นแทน", FORM)
+    assert out == ("จด vat ต้องใช้เอกสารอะไร (ยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ ตามประกาศฉบับที่ 57)"
+                   " (ผู้ยื่น: บุคคลธรรมดาต่างด้าว) (สถานประกอบการ: เช่าสถานที่, มอบอำนาจให้ผู้อื่นยื่นแทน)")
+
+
+def test_merge_form_reply_typed_answers():
+    assert merge_clarification_reply("ยื่นเน็ตค่ะ", FORM).endswith("ตามประกาศฉบับที่ 159)")
+    assert merge_clarification_reply("เป็นบริษัทค่ะ", FORM) == "จด vat ต้องใช้เอกสารอะไร (ผู้ยื่น: เป็นบริษัทค่ะ)"
+    assert merge_clarification_reply("ไม่รู้", FORM) is None
+
+
+def test_document_question_detection():
+    assert cl.is_document_question("ต้องแนบอะไรบ้าง")
+    assert cl.is_document_question("จดแวทใช้เอกสารอะไร")
+    assert not cl.is_document_question("ใครเซ็น ภ.พ.20")
+    assert cl.has_applicant_info("บริษัทต้องใช้เอกสารอะไร")
+    assert not cl.has_applicant_info("ต้องใช้เอกสารอะไร")

@@ -18,6 +18,7 @@ from app.models.models import (
     VerificationScore, RiskAssessment, Escalation, AuditLog, Department,
     StaffUser, KbArticle, gen_uuid
 )
+from app.graph import clarify as cl
 from app.agents import (
     agent1_intent_classifier as a1,
     agent2_out_of_scope_router as a2,
@@ -114,6 +115,8 @@ def merge_clarification_reply(text: str, history: list[dict]) -> str | None:
     original = (last.get("resolved_query") or "").strip()
     if not original:
         return None
+    if summary.startswith(cl.FORM_CLARIFICATION_SUMMARY):
+        return cl.merge_form_reply(text, original, CHANNEL_PHRASE, detect_channel)
     if summary.startswith(CHANNEL_CLARIFICATION_SUMMARY):
         channel = detect_channel(text)
         if channel:
@@ -319,6 +322,7 @@ def run_pipeline(
                     "message": msg,
                     "draft_text": msg,
                     "checklist_data": checklist_data,
+                    "offer_checklist": True,
                     "tier": "auto_answer",
                     "trust_score": 1.0,
                 },
@@ -360,34 +364,47 @@ def run_pipeline(
                     "relevant_articles": relevant_articles,
                     "is_clarification": True,
                     "clarification_type": "purpose",
+                    "form": cl.build_form([cl.PURPOSE_GROUP]),
                     "tier": "auto_answer",
                     "trust_score": 1.0,
                 },
             }
 
-        # 3.5 ตรวจสอบความกำกวมของช่องทาง (ถามก่อนเพื่อเช็คให้ชัวร์ว่ายื่นแบบกระดาษ ฉบับ 57 หรือ อินเทอร์เน็ต ฉบับ 159)
+        # 3.5 ถามข้อมูลที่ยังขาดก่อนตอบ (ฟอร์ม checkbox): ช่องทางยื่น และ (คำถามเรื่องเอกสาร) ประเภทผู้ยื่น/สถานประกอบการ
+        #     ถ้าเทิร์นก่อนหน้าเพิ่งถามไป ไม่ถามซ้ำ — ตอบตามข้อมูลที่ได้
         is_ambiguous, detected_channel = check_channel_ambiguity(effective_text, history)
-        if is_ambiguous:
+        last_summary = (history[-1].get("answer_summary") or "") if history else ""
+        just_asked = last_summary.startswith((cl.FORM_CLARIFICATION_SUMMARY, CHANNEL_CLARIFICATION_SUMMARY))
+        hist_text = " ".join(h.get("resolved_query", "") for h in history)
+        need_applicant = (
+            not just_asked
+            and cl.is_document_question(effective_text)
+            and not cl.has_applicant_info(f"{hist_text} {effective_text}")
+            and detected_channel != "dbd"
+            and not a6.find_risk_factors(effective_text)
+        )
+        groups = ([cl.CHANNEL_GROUP] if is_ambiguous and not just_asked else []) + \
+                 ([cl.APPLICANT_GROUP, cl.PREMISES_GROUP] if need_applicant else [])
+        if groups:
+            parts = []
+            if is_ambiguous and not just_asked:
+                parts.append("ข้อกำหนด ขั้นตอน และเอกสารของการจดทะเบียน VAT แตกต่างกันตามช่องทางที่ยื่นคำขอ")
+            if need_applicant:
+                parts.append("เอกสารประกอบคำขอตามข้อ 5 แยกตามประเภทผู้ยื่นและสถานประกอบการ")
             clarification_text = (
-                "การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่ม (VAT) มีข้อกำหนด ขั้นตอน และเอกสารหลักฐานที่แตกต่างกันตามช่องทางการยื่นคำขอ\n\n"
-                "เพื่อให้ดิฉันสรุปข้อมูลและรายการเอกสารได้อย่างถูกต้องตรงกับกรณีของท่าน ขอสอบถามว่าท่านประสงค์จะยื่นคำขอจดทะเบียนผ่านช่องทางหลักใดคะ?\n\n"
-                "1. 📄 **ยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่** (ตามประกาศอธิบดีกรมสรรพากร ฉบับที่ 57)\n"
-                "2. 🌐 **ยื่นผ่านระบบอินเทอร์เน็ตทาง www.rd.go.th** (ตามประกาศอธิบดีกรมสรรพากร ฉบับที่ 159)\n\n"
-                "*(หมายเหตุ: กรณีต้องการยื่นพร้อมการขอจดทะเบียนจัดตั้งนิติบุคคลต่อกรมพัฒนาธุรกิจการค้า ให้ระบุคำว่า 'DBD' ในคำถามเพื่ออ้างอิงตามประกาศ ฉบับที่ 234 ค่ะ)*"
+                " และ".join(parts) + "\n\n"
+                "เพื่อให้สรุปข้อมูลได้ตรงกับกรณีของท่าน กรุณาเลือกข้อมูลด้านล่างแล้วกด \"ยืนยัน\" ค่ะ"
             )
-
-            relevant_articles = []
-            citations = []
-
+            form = cl.build_form(groups)
             draft_ans = DraftAnswer(
                 id=gen_uuid(),
                 query_id=query.id,
                 draft_text=clarification_text,
-                citations=citations,
+                citations=[],
             )
             db.add(draft_ans)
             query.resolved_query = effective_text
-            query.answer_summary = "สอบถามช่องทางการยื่นจดทะเบียน VAT (กระดาษ ฉบับ 57 / อินเทอร์เน็ต ฉบับ 159 / DBD ฉบับ 234)"
+            query.answer_summary = f"{cl.FORM_CLARIFICATION_SUMMARY} ({', '.join(g['short'] for g in groups)})"
             query.status = "answered"
             db.commit()
 
@@ -399,9 +416,11 @@ def run_pipeline(
                 "type": "clarification",
                 "payload": {
                     "draft_text": clarification_text,
-                    "citations": citations,
-                    "relevant_articles": relevant_articles,
+                    "citations": [],
+                    "relevant_articles": [],
                     "is_clarification": True,
+                    "clarification_type": "form",
+                    "form": form,
                     "tier": "auto_answer",
                     "trust_score": 1.0,
                 },
@@ -552,6 +571,7 @@ def run_pipeline(
                     "tier": "auto_answer",
                     "resolved_query": resolved_query,
                     "answer_summary": draft["answer_summary"],
+                    "offer_checklist": cl.is_document_question(effective_text),
                 },
             }
 

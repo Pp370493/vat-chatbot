@@ -18,3 +18,17 @@ npm start          # http://localhost:3000   (ตอนพัฒนาใช้ 
   - `DEMO_MODE=true` — **เฉพาะงานสาธิตที่ไม่มี backend** (เช่น Vercel): ตอบด้วยข้อความสำเร็จรูปและแสดงป้าย “โหมดเดโม”
     ไม่ตั้ง = ถ้า backend ล่มจะแจ้งว่าเชื่อมต่อไม่ได้ (ไม่แสดงคำตอบปลอม)
 - สิทธิ์ตรวจที่ backend ทุกคำขอ หน้าเว็บแค่พาไปหน้าที่บทบาทนั้นเข้าได้
+
+## Graph RAG (ปุ่มบนแถบหัวหน้าแชท)
+
+ปุ่ม "Graph RAG ความสัมพันธ์ประกาศ" เปิด `public/graph-rag.html` ซึ่งสร้างจากฝั่งข้อมูลประกาศ (branch `chunking-import`)
+เมื่อข้อมูลประกาศเปลี่ยน ให้สร้างใหม่แล้วคัดลอกมา:
+
+```bash
+# บน branch chunking-import (โฟลเดอร์ราก repo)
+python chunking/scripts/build_graph_data.py --out graph_data.json --html chunking/reports/graph_view.html
+# ที่ app/frontend
+python scripts/update_graph_rag.py <path ถึง chunking/reports/graph_view.html>
+```
+
+หน้านี้แสดงตัวบทชุดที่ตรวจเทียบต้นฉบับแล้วบน `chunking-import` ซึ่งอาจใหม่กว่าตัวบทที่แอปใช้ตอบอยู่
