@@ -144,6 +144,7 @@ npm run build
 | อาการ | สาเหตุ / วิธีแก้ |
 |---|---|
 | `WinError 10061` / `actively refused it` / "เชื่อมต่อ Ollama ไม่ได้" ตอนรัน setup_db | Ollama ไม่ได้เปิด ให้เปิดจากเมนู Start (ต้องมีไอคอนลามะที่มุมขวาล่าง) แล้วรันคำสั่งเดิมใหม่ ข้อมูลไม่เสียหาย |
+| `npm.ps1 cannot be loaded because running scripts is disabled` | เกิดใน PowerShell ให้พิมพ์ `npm.cmd ci` และ `npm.cmd run build` แทน หรือใช้หน้าต่าง Command Prompt (cmd) |
 | หน้าเว็บขึ้น "เชื่อมต่อระบบไม่ได้" | หน้าต่าง Backend ปิดอยู่หรือ error ให้เปิดหน้าต่าง "VAT Backend" ดูข้อความ แล้วส่งภาพมา |
 | รอคำตอบนานเกิน 5 นาที | Ollama ไม่ได้เปิด หรือ RAM เต็ม ให้ปิดโปรแกรมอื่นแล้วลองใหม่ |
 | `python` หรือ `npm` ไม่รู้จักคำสั่ง | ตอนติดตั้งไม่ได้ติ๊ก Add to PATH หรือยังไม่ได้เปิด Command Prompt ใหม่ ให้ปิดแล้วเปิดใหม่ หรือติดตั้งใหม่แล้วติ๊กให้ถูก |
