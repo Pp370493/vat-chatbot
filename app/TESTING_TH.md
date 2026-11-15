@@ -11,7 +11,7 @@
 
 | โปรแกรม | ดาวน์โหลด | หมายเหตุ |
 |---|---|---|
-| Python 3.12 | python.org/downloads | **ติ๊ก "Add python.exe to PATH"** ในหน้าแรกของตัวติดตั้ง |
+| Python 3.12 | https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe | ใช้ไฟล์ .exe นี้ **ไม่ใช่ "Python Install Manager"** (เครื่องที่ปิด sideloading จะติดตั้งตัวนั้นไม่ได้) หน้าแรกให้ติ๊ก **"Add python.exe to PATH"** ถ้าไม่มีสิทธิ์ admin ให้เอาติ๊ก "Use admin privileges" ออก |
 | Node.js 20 LTS | nodejs.org | |
 | Git | git-scm.com | |
 | Ollama | ollama.com/download | |
