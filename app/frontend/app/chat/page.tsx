@@ -687,7 +687,10 @@ export default function ChatPage() {
       {/* ======================================================== */}
       {/* COLUMN 2: พื้นที่สนทนาหลัก (Center Chat Column) */}
       {/* ======================================================== */}
-      <section className="flex-1 min-h-0 flex flex-col bg-slate-50 relative overflow-hidden">
+      <section
+        className="flex-1 min-h-0 flex flex-col bg-slate-50 relative overflow-hidden"
+        onScroll={(e) => { if (e.currentTarget.scrollTop !== 0) e.currentTarget.scrollTop = 0; }}
+      >
         {isDemoMode && (
           <div className="flex-shrink-0 bg-amber-100 border-b border-amber-300 text-amber-900 text-xs px-4 py-2 font-medium">
             โหมดเดโม — ไม่ได้เชื่อมระบบจริง คำตอบเป็นข้อความสำเร็จรูปแบบคำสำคัญ ไม่ได้บันทึกและไม่ได้ส่งเข้าคิวหัวหน้างาน

@@ -102,13 +102,14 @@ export default function ClarifyForm({
               return (
                 <label
                   key={o.value}
-                  className={`flex items-start gap-2 p-2 rounded-lg border text-left transition ${
+                  className={`relative flex items-start gap-2 p-2 rounded-lg border text-left transition ${
                     sent ? "cursor-default" : "cursor-pointer"
                   } ${on ? "bg-blue-50 border-blue-400" : "bg-white border-slate-200 hover:bg-slate-50"}`}
                 >
+                  {/* input ซ่อนต้องอยู่ในกรอบ label (relative) — ไม่งั้นตอนได้ focus เบราว์เซอร์จะเลื่อนคอลัมน์แชททั้งคอลัมน์ขึ้นไป */}
                   <input
                     type="checkbox"
-                    className="sr-only"
+                    className="absolute inset-0 opacity-0 w-full h-full m-0 cursor-pointer"
                     checked={on}
                     onChange={() => toggle(g, o.value)}
                   />
