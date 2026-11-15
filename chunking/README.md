@@ -97,6 +97,17 @@ python chunking/scripts/build_review_sheet.py
 (ตัวแดง = ไม่พบในต้นฉบับ) คู่กับข้อความช่วงเดียวกันจากไฟล์ต้นฉบับ พร้อมช่อง ✓/✗ ·
 แท็บ "ต้นฉบับที่ไม่อยู่ใน chunk" แสดงข้อความต้นฉบับที่ไม่มี chunk ครอบคลุม (ส่วนใหญ่คือหมายเหตุ "แก้ไขเพิ่มเติมโดย…" ในฉบับรวม)
 
+## Graph RAG สำหรับตรวจความสัมพันธ์
+
+```bash
+python chunking/scripts/build_graph_data.py --out /tmp/graph_data.json --html chunking/reports/graph_view.html
+```
+
+รวม chunk 75 ชิ้น (role/amends จาก `annotate_roles.py`), `graph_rag_vat_registration.json`, พจนานุกรมคำพ้อง
+และผลชุดทดสอบ (`eval_retrieval.py` โหมด primary) เป็นหน้าเดียว [`reports/graph_view.html`](reports/graph_view.html):
+ตารางสายการแก้ไข (ฉบับ × ข้อ), เครือข่ายทั้งหมด และ "จุดที่ต้องตรวจ" = จุดที่แหล่งข้อมูลขัดกันเอง
+(เช่น graph บอกว่ายังมีผลแต่ตัวบทถูกแทนที่แล้ว) ให้คนตัดสินว่าแหล่งไหนถูก
+
 ## รันต้นแบบ
 
 ```bash

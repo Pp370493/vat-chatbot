@@ -1,0 +1,329 @@
+<title>VAT Graph RAG ตรวจความสัมพันธ์</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Sarabun:wght@400;600;700&display=swap">
+<style>
+/* Layout: แถบสรุปบน → ซ้าย "จุดที่ต้องตรวจ" | กลาง graph | ขวา รายละเอียด (มือถือ: เรียงลงเป็นคอลัมน์เดียว) */
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --ink:#1b2330; --muted:#5d6878; --line:#d9dee6;
+  --navy:#1f3a6b; --teal:#1b7f79; --amber:#b5761a; --grey:#9aa3af; --red:#b3261e; --green:#2e7d4f;
+  --sel:#e0a400; --chip:#eef1f5;
+  --f-ui:"IBM Plex Sans Thai",system-ui,sans-serif; --f-law:"Sarabun","IBM Plex Sans Thai",serif; --f-id:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161d; --panel:#1a2029; --ink:#e6e9ee; --muted:#9aa4b2; --line:#2c3440;
+  --navy:#7ea6ec; --teal:#4cc2b8; --amber:#e3a447; --grey:#5f6875; --red:#f2786f; --green:#5fc48a;
+  --sel:#ffd24d; --chip:#232b36; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161d; --panel:#1a2029; --ink:#e6e9ee; --muted:#9aa4b2; --line:#2c3440;
+  --navy:#7ea6ec; --teal:#4cc2b8; --amber:#e3a447; --grey:#5f6875; --red:#f2786f; --green:#5fc48a;
+  --sel:#ffd24d; --chip:#232b36; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.5}
+.wrap{display:flex;flex-direction:column;min-height:100%;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));gap:12px;box-sizing:border-box}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-law);font-weight:700;font-size:22px;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+.stats{display:flex;flex-wrap:wrap;gap:6px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--muted)}
+.stat b{color:var(--ink);font-variant-numeric:tabular-nums;font-size:14px;margin-right:4px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tabs{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.tabs button{font:inherit;background:var(--panel);color:var(--muted);border:0;padding:6px 12px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--navy);color:var(--panel)}
+.tabs button:focus-visible,.toggles label:focus-within,.check:focus-visible,.lnk:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
+input[type=search]{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 10px;min-width:0;flex:1 1 200px;max-width:320px}
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+.toggles label{display:flex;align-items:center;gap:4px;font-size:12px;background:var(--chip);border-radius:999px;padding:3px 10px;cursor:pointer;user-select:none}
+.main{display:grid;grid-template-columns:280px minmax(0,1fr) 340px;gap:12px;flex:1;min-height:560px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0;display:flex;flex-direction:column}
+.card h2{font-size:13px;font-weight:600;margin:0;padding:10px 12px;border-bottom:1px solid var(--line);letter-spacing:.02em}
+.scroll{overflow:auto;padding:8px 12px;flex:1}
+#cy{flex:1;min-height:520px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.lg{display:flex;align-items:center;gap:5px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block;border:2px solid transparent}
+.check{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:none;border:0;border-left:3px solid var(--line);padding:6px 8px;margin:0 0 6px;cursor:pointer;border-radius:0 4px 4px 0}
+.check:hover{background:var(--chip)}
+.check.error{border-left-color:var(--red)} .check.warn{border-left-color:var(--amber)} .check.info{border-left-color:var(--grey)}
+.check .lv{font-size:11px;font-weight:600;letter-spacing:.04em}
+.check.error .lv{color:var(--red)} .check.warn .lv{color:var(--amber)} .check.info .lv{color:var(--muted)}
+.check .t{display:block;font-size:13px}
+.check .d{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.grp{font-size:11px;color:var(--muted);letter-spacing:.06em;margin:10px 0 6px}
+.det h3{font-family:var(--f-law);font-size:18px;margin:0 0 4px;text-wrap:balance}
+.det .id{font-family:var(--f-id);font-size:12px;color:var(--muted)}
+.pills{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.pill{font-size:11px;border-radius:999px;padding:1px 8px;background:var(--chip);color:var(--ink)}
+.pill.primary{background:var(--navy);color:var(--panel)} .pill.amendment{border:1px solid var(--teal);color:var(--teal);background:none}
+.pill.special{background:var(--amber);color:var(--panel)} .pill.old{background:var(--grey);color:var(--panel)}
+.pill.bad{background:var(--red);color:var(--panel)} .pill.mid{background:var(--amber);color:var(--panel)} .pill.good{background:var(--green);color:var(--panel)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:8px 0;font-size:13px}
+dt{color:var(--muted)} dd{margin:0;min-width:0}
+.lnk{font-family:var(--f-id);font-size:12px;color:var(--navy);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;margin-right:6px}
+.law{font-family:var(--f-law);font-size:14px;line-height:1.7;background:var(--bg);border-radius:6px;padding:10px;white-space:pre-wrap;margin-top:8px}
+.fail{font-size:13px;border-top:1px solid var(--line);padding:6px 0}
+.empty{color:var(--muted);font-size:13px}
+.mx{flex:1;overflow:auto;min-height:520px}
+.mx table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%}
+.mx th,.mx td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top;text-align:left}
+.mx thead th{position:sticky;top:0;background:var(--panel);z-index:2;font-weight:600;white-space:nowrap}
+.mx thead tr:first-child th{color:var(--muted);font-size:11px;letter-spacing:.06em;border-bottom:0}
+.mx thead tr:nth-child(2) th{top:26px}
+.mx tbody th{position:sticky;left:0;background:var(--panel);z-index:1;white-space:nowrap;font-family:var(--f-law);font-size:14px}
+.mx .lane{border-left:2px solid var(--line)}
+.mx td.prim{background:color-mix(in srgb,var(--navy) 6%,transparent)}
+.cells{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.ch{font-family:var(--f-id);font-size:11px;border-radius:4px;padding:2px 6px;border:1.5px solid transparent;cursor:pointer;white-space:nowrap;background:var(--chip);color:var(--ink)}
+.ch.primary{background:var(--navy);color:var(--panel)} .ch.amendment{border-color:var(--teal);background:var(--panel)}
+.ch.special{background:var(--amber);color:var(--panel)} .ch.old{border-color:var(--grey);border-style:dashed;background:var(--chip);color:var(--muted);text-decoration:line-through}
+.ch.boiler{opacity:.55}
+.ch.hl{outline:3px solid var(--sel);outline-offset:1px} .mx.searching .ch:not(.hl){opacity:.18}
+.ch:focus-visible{outline:2px solid var(--sel)}
+.hint{font-size:12px;color:var(--muted)}
+@media (max-width:1100px){.main{grid-template-columns:minmax(0,1fr) 320px}.c-checks{grid-column:1/-1;max-height:260px}}
+@media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}#cy{min-height:60vh}.c-checks{max-height:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>ความสัมพันธ์ประกาศอธิบดีฯ VAT การจดทะเบียน</h1>
+      <p class="sub">ตัวบท 75 ชิ้นจาก 10 ฉบับ · ฉบับ 57 (กระดาษ) และ 159 (อินเทอร์เน็ต) เป็นตัวบทหลัก · 234 เฉพาะ DBD · ฉบับอื่นใช้อ้างที่มา</p>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="bar">
+    <div class="tabs" role="tablist" aria-label="มุมมอง">
+      <button role="tab" id="tab-matrix" aria-selected="true">สายการแก้ไข (ฉบับ × ข้อ)</button>
+      <button role="tab" id="tab-net" aria-selected="false">เครือข่ายทั้งหมด</button>
+    </div>
+    <input type="search" id="q" placeholder="ค้น chunk, ข้อความตัวบท, หัวข้อ…" aria-label="ค้นหา">
+    <div class="toggles" id="toggles" hidden>
+      <label><input type="checkbox" id="e-amends" checked> แก้ไข</label>
+      <label><input type="checkbox" id="e-topic" checked> หัวข้อ</label>
+      <label><input type="checkbox" id="e-syn"> คำพ้อง</label>
+      <label><input type="checkbox" id="e-gold"> ชุดทดสอบ</label>
+      <label><input type="checkbox" id="e-in"> สังกัดฉบับ</label>
+      <label><input type="checkbox" id="e-old" checked> แสดงกฎที่ถูกแทนที่</label>
+    </div>
+  </div>
+
+  <div class="main">
+    <section class="card c-checks" aria-labelledby="h-checks">
+      <h2 id="h-checks">จุดที่ต้องตรวจ</h2>
+      <div class="scroll" id="checks"></div>
+    </section>
+    <section class="card" aria-label="กราฟ">
+      <div id="mx" class="mx"></div>
+      <div id="cy" hidden></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <section class="card" aria-labelledby="h-det">
+      <h2 id="h-det">รายละเอียด</h2>
+      <div class="scroll det" id="det"><p class="empty">คลิกจุดในกราฟ หรือคลิกรายการใน "จุดที่ต้องตรวจ" เพื่อดูรายละเอียดและความสัมพันธ์</p></div>
+    </section>
+  </div>
+</div>
+
+<script id="data" type="application/json">/*__DATA__*/</script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById("data").textContent);
+const byId = Object.fromEntries(D.nodes.map(n => [n.id, n]));
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ---- สรุปบนสุด
+const st = D.stats, nErr = D.checks.filter(c => c.level === "error").length, nWarn = D.checks.filter(c => c.level === "warn").length;
+$("stats").innerHTML = [
+  [st.primary, "ตัวบทหลัก"], [st.amendment, "ฉบับแก้ไข"], [st.special, "DBD (234)"], [st.superseded, "ถูกแทนที่แล้ว"],
+  [Math.round(st.hit3 * 100) + "%", "ค้นถูกใน 3 อันดับ"], [nErr + nWarn, "จุดที่ต้องตรวจ"]
+].map(([v, l]) => `<span class="stat"><b>${v}</b>${l}</span>`).join("");
+
+// ---- สีจาก token (อ่านใหม่เมื่อเปลี่ยนธีม)
+const tok = () => { const s = getComputedStyle(document.documentElement); const g = k => s.getPropertyValue(k).trim();
+  return {bg:g("--bg"),panel:g("--panel"),ink:g("--ink"),muted:g("--muted"),line:g("--line"),navy:g("--navy"),teal:g("--teal"),
+          amber:g("--amber"),grey:g("--grey"),red:g("--red"),green:g("--green"),sel:g("--sel"),chip:g("--chip"),font:g("--f-ui")}; };
+
+// ---- ตำแหน่งในมุมมองตาราง: คอลัมน์ = ฉบับ (แยกช่องทาง) แถว = ข้อของตัวบทหลัก
+const COLS = ["57","74","139","165","215","245","159","214","246","234"];
+const LANE = {"57":"กระดาษ","159":"อินเทอร์เน็ต","234":"DBD"};
+const ROWS = ["1","2","3","4","4/1","5","5/1","6","7","8","9","10","ท้ายประกาศ","แนบท้าย"];
+const chunks = D.nodes.filter(n => n.kind === "chunk");
+const cell = {}; chunks.forEach(n => { const k = n.ann + "|" + n.art; (cell[k] = cell[k] || []).push(n.id); });
+const suffix = id => id.replace(/^VAT\d+_ART_/, "").replace(/^VAT\d+_/, "");
+function renderMatrix(){
+  const laneStart = c => c === "159" || c === "234";
+  let h = '<table><thead><tr><th></th><th colspan="6">กระดาษ · ตัวบทหลัก 57 และฉบับที่แก้</th><th colspan="3" class="lane">อินเทอร์เน็ต · ตัวบทหลัก 159 และฉบับที่แก้</th><th class="lane">DBD · เลขข้อของ 234 เอง</th></tr><tr><th>ข้อ</th>'
+    + COLS.map(c => `<th class="${laneStart(c) ? "lane" : ""}">ฉบับ ${c}</th>`).join("") + "</tr></thead><tbody>";
+  ROWS.forEach(r => {
+    if (!COLS.some(c => cell[c + "|" + r])) return;
+    h += `<tr><th>${/^[0-9]/.test(r) ? "ข้อ " + r : r}</th>` + COLS.map(c => {
+      const ids = (cell[c + "|" + r] || []).sort();
+      return `<td class="${laneStart(c) ? "lane " : ""}${c === "57" || c === "159" ? "prim" : ""}"><div class="cells">` + ids.map(id => { const n = byId[id];
+        return `<button class="ch ${n.role} ${n.current === false ? "old" : ""} ${n.boiler ? "boiler" : ""}" data-go="${id}" title="${esc(n.title)}">${esc(suffix(id))}</button>`; }).join("") + "</div></td>";
+    }).join("") + "</tr>";
+  });
+  $("mx").innerHTML = h + "</tbody></table>";
+}
+const mxHighlight = ids => { const set = new Set(ids); let first = null;
+  $("mx").querySelectorAll(".ch").forEach(b => { const on = set.has(b.dataset.go); b.classList.toggle("hl", on); if (on && !first) first = b; });
+  $("mx").classList.toggle("searching", ids.length > 0);
+  if (first) first.scrollIntoView({block:"nearest", inline:"nearest", behavior:"smooth"}); return !!first; };
+$("mx").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) { show(b.dataset.go); mxHighlight([b.dataset.go]); } });
+const nodeEl = n => ({data:{...n, id:n.id, label: n.label}, classes:[n.kind, n.role||"", n.current===false?"old":"", n.boiler?"boiler":"",
+  n.kind==="cat" ? (n.hit3 < .5 ? "bad" : n.hit3 < .8 ? "mid" : "good") : ""].join(" ")});
+const edgeEl = (e, i) => ({data:{id:"E"+i, source:e.s, target:e.t, kind:e.kind, channel:e.channel||"", cur:e.current!==false}, classes:e.kind + (e.current===false?" old":"")});
+const validEdges = D.edges.filter(e => byId[e.s] && byId[e.t]);
+
+function style(T){ return [
+  {selector:"node", style:{"font-family":T.font,"font-size":10,"color":T.ink,"label":"data(label)","text-valign":"center","text-halign":"center",
+    "text-wrap":"wrap","text-max-width":110,"background-color":T.panel,"border-width":1.5,"border-color":T.line,"width":"label","height":"label","padding":"6px","shape":"round-rectangle"}},
+  {selector:"node.chunk.primary", style:{"background-color":T.navy,"color":T.panel,"border-color":T.navy}},
+  {selector:"node.chunk.amendment", style:{"background-color":T.panel,"border-color":T.teal,"color":T.ink}},
+  {selector:"node.chunk.special", style:{"background-color":T.amber,"border-color":T.amber,"color":T.panel}},
+  {selector:"node.chunk.old", style:{"background-color":T.chip,"border-color":T.grey,"border-style":"dashed","color":T.muted}},
+  {selector:"node.chunk.boiler", style:{"opacity":.55,"font-size":9}},
+  {selector:"node.ann", style:{"shape":"rectangle","background-color":T.ink,"color":T.panel,"border-color":T.ink,"font-size":12,"font-weight":600}},
+  {selector:"node.topic", style:{"shape":"ellipse","background-color":T.chip,"border-color":T.navy,"border-width":2,"font-size":11,"text-max-width":120}},
+  {selector:"node.syn", style:{"shape":"tag","background-color":T.panel,"border-color":T.muted,"border-style":"dotted","font-size":9,"color":T.muted}},
+  {selector:"node.cat", style:{"shape":"hexagon","font-size":9,"text-max-width":100,"border-width":2.5}},
+  {selector:"node.cat.bad", style:{"border-color":T.red}}, {selector:"node.cat.mid", style:{"border-color":T.amber}}, {selector:"node.cat.good", style:{"border-color":T.green}},
+  {selector:"edge", style:{"width":1.2,"line-color":T.line,"curve-style":"bezier","target-arrow-shape":"none","opacity":.9}},
+  {selector:"edge.amends", style:{"line-color":T.teal,"target-arrow-shape":"triangle","target-arrow-color":T.teal,"width":1.8}},
+  {selector:"edge.amends.old", style:{"line-color":T.grey,"target-arrow-color":T.grey,"line-style":"dashed"}},
+  {selector:"edge.topic", style:{"line-color":T.navy,"opacity":.35}},
+  {selector:"edge.syn", style:{"line-color":T.muted,"line-style":"dotted","opacity":.6}},
+  {selector:"edge.gold", style:{"line-color":T.amber,"opacity":.5}},
+  {selector:"edge.in", style:{"line-color":T.ink,"opacity":.15}},
+  {selector:".dim", style:{"opacity":.12}},
+  {selector:"node.hl", style:{"border-color":T.sel,"border-width":4,"opacity":1}},
+  {selector:"edge.hl", style:{"opacity":1,"width":2.6}},
+  {selector:":selected", style:{"border-color":T.sel,"border-width":4}},
+]; }
+
+let T = tok(), view = "matrix";
+const cy = cytoscape({container:$("cy"), style:style(T), wheelSensitivity:.25, minZoom:.15, maxZoom:3, boxSelectionEnabled:false});
+
+function buildNet(){
+  cy.elements().remove();
+  const show = k => $("e-" + k).checked, showOld = $("e-old").checked;
+  const kinds = new Set(["amends","topic","syn","gold","in"].filter(show));
+  const keepNode = n => !(n.kind === "chunk" && n.boiler) && !(n.kind === "chunk" && n.current === false && !showOld);
+  const es = validEdges.filter(e => kinds.has(e.kind) && keepNode(byId[e.s]) && keepNode(byId[e.t]));
+  const used = new Set(es.flatMap(e => [e.s, e.t]));
+  const ns = D.nodes.filter(n => keepNode(n) && (n.kind === "chunk" || used.has(n.id)));
+  cy.add(ns.map(nodeEl)); cy.add(es.map(edgeEl));
+  cy.layout({name:"cose", animate:false, nodeRepulsion:9000, idealEdgeLength:70, gravity:.25, numIter:1500, randomize:false, padding:20}).run();
+}
+function setView(v){
+  view = v; $("tab-matrix").setAttribute("aria-selected", v === "matrix"); $("tab-net").setAttribute("aria-selected", v === "net");
+  $("toggles").hidden = v !== "net"; $("mx").hidden = v !== "matrix"; $("cy").hidden = v !== "net";
+  if (v === "net") { cy.resize(); buildNet(); } legend(); applySearch();
+  try { localStorage.setItem("vatgraph-view", v); } catch(e) {}
+}
+$("tab-matrix").onclick = () => setView("matrix"); $("tab-net").onclick = () => setView("net");
+["amends","topic","syn","gold","in","old"].forEach(k => $("e-" + k).addEventListener("change", () => { buildNet(); applySearch(); }));
+
+function legend(){
+  const items = [["primary","ตัวบทหลัก (57/159)","background:var(--navy)"],["amendment","ฉบับแก้ไขที่ยังมีผล","border-color:var(--teal);background:var(--panel)"],
+    ["old","ถูกฉบับหลังแทนที่","border-color:var(--grey);border-style:dashed;background:var(--chip)"],["special","234 (DBD)","background:var(--amber)"]];
+  if (view === "net") items.push(["t","หัวข้อ (graph)","border-color:var(--navy);border-radius:50%;background:var(--chip)"],["s","หมวดคำพ้อง","border-color:var(--muted);border-style:dotted"],["c","หมวดชุดทดสอบ (สีขอบ = ค้นถูกมาก/กลาง/น้อย)","border-color:var(--red)"]);
+  $("legend").innerHTML = items.map(([, l, s]) => `<span class="lg"><span class="sw" style="${s}"></span>${l}</span>`).join("")
+    + `<span class="lg">${view === "matrix" ? "แถวเดียวกัน = แก้ข้อเดียวกันของตัวบทหลัก · ขีดฆ่า = ถูกฉบับหลังแทนที่" : "ลากเพื่อเลื่อน · หมุนล้อเพื่อซูม"}</span>`;
+}
+
+// ---- ไฮไลต์ + รายละเอียด
+function highlight(ids){
+  if (view === "matrix") return mxHighlight(ids);
+  cy.elements().removeClass("hl dim");
+  const set = cy.collection(ids.map(id => cy.getElementById(id)).filter(e => e.nonempty()));
+  if (!set.nonempty()) return false;
+  const nb = set.union(set.connectedEdges().filter(e => set.contains(e.source()) || set.contains(e.target())));
+  cy.elements().not(nb).addClass("dim"); set.addClass("hl"); nb.edges().addClass("hl");
+  if (set.length < 3) cy.animate({center:{eles:set}, zoom:1.4, duration:250});
+  else cy.animate({fit:{eles:set, padding:60}, duration:250});
+  return true;
+}
+const rel = (id, kind, dir) => validEdges.filter(e => e.kind === kind && (dir === "out" ? e.s === id : e.t === id)).map(e => dir === "out" ? e.t : e.s);
+const links = ids => ids.length ? ids.map(i => `<button class="lnk" data-go="${esc(i)}">${esc(byId[i]?.kind === "chunk" ? i : (byId[i]?.label || i))}</button>`).join("") : '<span class="hint">—</span>';
+const ROLE = {primary:"ตัวบทหลัก", amendment:"ฉบับแก้ไข", special:"DBD (234)"};
+
+function show(id){
+  const n = byId[id]; if (!n) return; let h = "";
+  if (n.kind === "chunk"){
+    h += `<h3>${esc(n.title)}</h3><div class="id">${esc(n.id)} · ฉบับ ${esc(n.ann)} · ${esc(n.ref)}</div><div class="pills">
+      <span class="pill ${n.role}">${ROLE[n.role] || n.role}</span>${n.current === false ? '<span class="pill old">ถูกแทนที่แล้ว</span>' : '<span class="pill good">ยังมีผล</span>'}
+      ${n.boiler ? '<span class="pill">ท้ายประกาศ</span>' : ""}<span class="pill">keyword ${n.nkw}</span></div><dl>
+      <dt>แก้ไขข้อ</dt><dd>${links(rel(id, "amends", "out"))}</dd>
+      <dt>ถูกแก้โดย</dt><dd>${links(n.amended_by)}</dd>
+      ${n.superseded_by.length ? `<dt>แทนที่โดยฉบับ</dt><dd>${esc(n.superseded_by.join(", "))}</dd>` : ""}
+      <dt>หัวข้อ</dt><dd>${links(rel(id, "topic", "out"))}</dd>
+      <dt>คำพ้อง</dt><dd>${links(rel(id, "syn", "in"))}</dd>
+      <dt>ชุดทดสอบ</dt><dd>${links(rel(id, "gold", "in"))}</dd></dl>
+      <div class="law">${esc(n.text)}${n.text.length >= 700 ? " …" : ""}</div>`;
+  } else if (n.kind === "cat"){
+    const cls = n.hit3 < .5 ? "bad" : n.hit3 < .8 ? "mid" : "good";
+    h += `<h3>${esc(n.label)}</h3><div class="id">หมวดในชุดทดสอบ · ${n.n} คำถาม</div><div class="pills"><span class="pill ${cls}">ค้นถูกใน 3 อันดับ ${Math.round(n.hit3*100)}%</span></div>
+      <dl><dt>เฉลย</dt><dd>${links(rel(id, "gold", "out"))}</dd></dl>
+      ${n.fails.length ? `<div class="grp">คำถามที่ค้นพลาด (${n.fails.length})</div>` + n.fails.map(f => `<div class="fail">${esc(f.q)}<div class="hint">ได้: ${links(f.top3)}</div></div>`).join("") : '<p class="hint">ทุกข้อค้นถูก</p>'}`;
+  } else if (n.kind === "topic"){
+    h += `<h3>${esc(n.label)}</h3><div class="id">${esc(n.id)}</div><p>${esc(n.title)}</p><dl><dt>กฎปัจจุบัน</dt><dd>${esc(n.rule)}</dd>
+      <dt>chunk</dt><dd>${links(rel(id, "topic", "in"))}</dd></dl>`;
+  } else if (n.kind === "syn"){
+    h += `<h3>${esc(n.label)}</h3><div class="id">หมวดคำพ้อง · น้ำหนัก ${esc(n.weight)}</div><p class="hint">ตัวอย่างคำ: ${esc(n.title)}</p><dl><dt>ชี้ไปที่</dt><dd>${links(rel(id, "syn", "out"))}</dd></dl>`;
+  } else if (n.kind === "ann"){
+    h += `<h3>${esc(n.title || n.label)}</h3><div class="id">${esc(n.id)} · มีผล ${esc(n.date)}</div><p>${esc(n.role)}</p><dl><dt>ช่องทาง</dt><dd>${esc(n.channel)}</dd>
+      <dt>chunk</dt><dd>${links(rel(id, "in", "in"))}</dd></dl>`;
+  }
+  $("det").innerHTML = h;
+}
+function go(id){
+  const n = byId[id]; if (!n) return;
+  if (view === "matrix" && n.kind !== "chunk") setView("net");
+  if (view === "net" && cy.getElementById(id).empty()){ ["topic","syn","gold","in","old"].forEach(k => { if (k === n.kind || (k === "gold" && n.kind === "cat") || (k === "in" && n.kind === "ann") || (k === "old" && n.current === false)) $("e-" + k).checked = true; }); buildNet(); }
+  show(id); highlight([id]);
+}
+$("det").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) go(b.dataset.go); });
+cy.on("tap", "node", e => { show(e.target.id()); highlight([e.target.id()]); });
+cy.on("tap", e => { if (e.target === cy) cy.elements().removeClass("hl dim"); });
+
+// ---- จุดที่ต้องตรวจ
+const LV = {error:"ข้อมูลขัดกัน", warn:"ควรตรวจ", info:"ข้อสังเกต"};
+$("checks").innerHTML = D.checks.length ? D.checks.map((c, i) => `<button class="check ${c.level}" data-ci="${i}"><span class="lv">${LV[c.level]}</span><span class="t">${esc(c.title)}</span>${c.detail ? `<span class="d">${esc(c.detail)}</span>` : ""}</button>`).join("")
+  : '<p class="empty">ไม่พบจุดที่ข้อมูลขัดกัน</p>';
+$("checks").addEventListener("click", e => { const b = e.target.closest("[data-ci]"); if (!b) return; const c = D.checks[+b.dataset.ci];
+  const needNet = c.ids.some(i => byId[i] && byId[i].kind !== "chunk");
+  if (needNet && view === "matrix") setView("net");
+  if (view === "net"){ const kinds = new Set(c.ids.map(i => byId[i]?.kind)); if (kinds.has("cat")) $("e-gold").checked = true; if (kinds.has("syn")) $("e-syn").checked = true;
+    if (kinds.has("ann")) $("e-in").checked = true; if (c.ids.some(i => byId[i]?.current === false)) $("e-old").checked = true; buildNet(); }
+  highlight(c.ids); show(c.ids.find(i => byId[i]?.kind === "cat") || c.ids[0]); });
+
+// ---- ค้นหา
+function applySearch(){
+  const q = $("q").value.trim().toLowerCase();
+  if (!q){ if (view === "matrix") mxHighlight([]); else cy.elements().removeClass("hl dim"); return; }
+  const hit = d => [d.id, d.label, d.title, d.text, d.ref].some(v => String(v || "").toLowerCase().includes(q));
+  const pool = view === "matrix" ? chunks.map(n => n.id) : cy.nodes().map(n => n.id());
+  const ids = pool.filter(id => byId[id] && hit(byId[id]));
+  if (!highlight(ids) && view === "net") cy.elements().addClass("dim");
+}
+let tmr; $("q").addEventListener("input", () => { clearTimeout(tmr); tmr = setTimeout(applySearch, 200); });
+
+// ---- ธีม
+const restyle = () => { T = tok(); cy.style(style(T)); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", restyle);
+new MutationObserver(restyle).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+document.fonts && document.fonts.ready.then(restyle);
+
+let start = "matrix"; try { start = localStorage.getItem("vatgraph-view") || "matrix"; } catch(e) {}
+renderMatrix();
+setView(start === "net" ? "net" : "matrix");
+const firstErr = D.checks.find(c => c.level === "error"); if (firstErr) show(firstErr.ids[0]);
+})();
+</script>

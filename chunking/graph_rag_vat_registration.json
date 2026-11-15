@@ -442,7 +442,7 @@
       {"source": "VAT234_ART_07", "target": "TOPIC_DBD", "channel": "DBD"},
       {"source": "VAT234_ART_ATTACHMENT", "target": "TOPIC_DBD", "channel": "DBD"},
       {"source": "VAT57_ART_10", "target": "TOPIC_DIRECTOR_RULING", "channel": "Walk-in"},
-      {"source": "VAT74_ART_10", "target": "TOPIC_DIRECTOR_RULING", "channel": "Walk-in (ประวัติเก่า)"},
+      {"source": "VAT74_ART_10", "target": "TOPIC_DIRECTOR_RULING", "channel": "เพิ่มข้อ 10 ในฉบับ 57"},
       {"source": "VAT159_ART_10", "target": "TOPIC_DIRECTOR_RULING", "channel": "Online"}
     ],
 
