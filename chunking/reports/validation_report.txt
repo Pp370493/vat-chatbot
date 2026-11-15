@@ -13,8 +13,8 @@
 
 == graph
   [INFO] active_law_chunks ครอบคลุม 13/75 chunks ใน 5 สายการแก้ไข
-  [WARN] chunk ที่ไม่ได้ผูกกับ topic ใดใน graph
-           chunk_ids: ['VAT139_ART_03', 'VAT159_ART_10', 'VAT165_ART_04', 'VAT214_ART_05', 'VAT215_ART_03', 'VAT234_ART_09', 'VAT245_ART_03', 'VAT246_ART_06', 'VAT57_ART_10', 'VAT74_ART_10']
+  [INFO] chunk ท้ายประกาศ (is_boilerplate) 7 ชิ้นไม่ผูก topic — ไม่อยู่ในดัชนีค้นหาอยู่แล้ว
+           chunk_ids: ['VAT139_ART_03', 'VAT165_ART_04', 'VAT214_ART_05', 'VAT215_ART_03', 'VAT234_ART_09', 'VAT245_ART_03', 'VAT246_ART_06']
 
 == alignment
   [INFO] 8 chunk เก็บเฉพาะข้อความใหม่ที่ใช้แทน (ไม่มีคำนำ 'ให้ยกเลิกความใน...') ต่างจากฉบับแก้ไขอื่น — รูปแบบไม่สม่ำเสมอ
@@ -33,14 +33,12 @@
            referenced_by: ['VAT215_ART_02']
 
 == keywords
-  [WARN] 23 chunk ของฉบับแก้ไขใช้เลขข้อของตัวเองเป็น keyword → ผู้ใช้ถาม 'ข้อ N' (หมายถึงฉบับแม่บท) จะดึงผิดข้อ
-           chunks: ["VAT139_ART_01 ('ข้อ 1' แต่เนื้อหาคือข้อ 4 ฉบับ 57)", "VAT139_ART_02 ('ข้อ 2' แต่เนื้อหาคือข้อ 9 ฉบับ 57)", "VAT165_ART_01 ('ข้อ 1' แต่เนื้อหาคือข้อ 4 ฉบับ 57)", "VAT165_ART_02_A ('ข้อ 2' แต่เนื้อหาคือข้อ 5 ฉบับ 57)", "VAT165_ART_02_B ('ข้อ 2' แต่เนื้อหาคือข้อ 5 ฉบับ 57)", "VAT165_ART_02_C ('ข้อ 2' แต่เนื้อหาคือข้อ 5 ฉบับ 57)", "VAT165_ART_03 ('ข้อ 3' แต่เนื้อหาคือข้อ 9 ฉบับ 57)", "VAT214_ART_01_A ('ข้อ 1' แต่เนื้อหาคือข้อ 5 ฉบับ 159)", "VAT214_ART_01_B ('ข้อ 1' แต่เนื้อหาคือข้อ 5 ฉบับ 159)", "VAT214_ART_01_C ('ข้อ 1' แต่เนื้อหาคือข้อ 5 ฉบับ 159)", "VAT214_ART_02 ('ข้อ 2' แต่เนื้อหาคือข้อ 6 ฉบับ 159)", "VAT214_ART_03 ('ข้อ 3' แต่เนื้อหาคือข้อ 8 ฉบับ 159)", "VAT214_ART_04 ('ข้อ 4' แต่เนื้อหาคือข้อ 9 ฉบับ 159)", "VAT215_ART_01 ('ข้อ 1' แต่เนื้อหาคือข้อ 5 ฉบับ 57)", "VAT215_ART_02 ('ข้อ 2' แต่เนื้อหาคือข้อ 5 ฉบับ 57)", "VAT245_ART_01 ('ข้อ 1' แต่เนื้อหาคือข้อ 4/1 ฉบับ 57)", "VAT245_ART_02 ('ข้อ 2' แต่เนื้อหาคือข้อ 9 ฉบับ 57)", "VAT246_ART_02_A ('ข้อ 2' แต่เนื้อหาคือข้อ 5 ฉบับ 159)", "VAT246_ART_02_B ('ข้อ 2' แต่เนื้อหาคือข้อ 5 ฉบับ 159)", "VAT246_ART_02_C ('ข้อ 2' แต่เนื้อหาคือข้อ 5 ฉบับ 159)", "VAT246_ART_03 ('ข้อ 3' แต่เนื้อหาคือข้อ 5/1 ฉบับ 159)", "VAT246_ART_04 ('ข้อ 4' แต่เนื้อหาคือข้อ 6 ฉบับ 159)", "VAT246_ART_05 ('ข้อ 5' แต่เนื้อหาคือข้อ 9 ฉบับ 159)"]
-  [WARN] keyword แบบ 'ข้อ N' มี 12 แบบ ใน 76 chunks → ไม่ระบุฉบับ และ substring match ข้ามเลข ('ข้อ 1' เจอใน 'ข้อ 10')
-           detail: {'ข้อ 1': 11, 'ข้อ 10': 3, 'ข้อ 2': 13, 'ข้อ 3': 9, 'ข้อ 4': 8, 'ข้อ 4/1': 2, 'ข้อ 5': 5, 'ข้อ 5/1': 2, 'ข้อ 6': 5, 'ข้อ 7': 4, 'ข้อ 8': 5, 'ข้อ 9': 9}
+  [INFO] keyword แบบ 'ข้อ N' มี 12 แบบ ใน 53 chunks (agents/agent3 ใช้ kw_in() ซึ่งไม่ให้ 'ข้อ 1' ไปเจอใน 'ข้อ 10' หรือ 'ข้อ 5' เจอใน 'ข้อ 5/1')
+           detail: {'ข้อ 1': 4, 'ข้อ 10': 3, 'ข้อ 2': 3, 'ข้อ 3': 6, 'ข้อ 4': 6, 'ข้อ 4/1': 2, 'ข้อ 5': 4, 'ข้อ 5/1': 2, 'ข้อ 6': 5, 'ข้อ 7': 4, 'ข้อ 8': 5, 'ข้อ 9': 9}
   [WARN] keyword สั้น (<= 4 ตัวอักษร) 10 คำ → เสี่ยง substring match
            detail: {'81/3': 3, 'DBD': 6, 'JV': 6, 'LTO': 12, 'ตลาด': 1, 'ภพ01': 4, 'ภพ20': 12, 'ภพ21': 4, 'หจก': 6, 'เซ็น': 8}
-  [WARN] 35 keyword กระจายอยู่ >= 3 topics → boost ไม่ช่วยแยกข้อ (บางตัวคือ keyword ที่ติดผิด chunk ดูหมวด alignment)
-           detail: {'dbd': '6 topics / 6 chunks', 'ภ.พ.20': '5 topics / 16 chunks', 'อาคารชุด': '5 topics / 14 chunks', 'กรมพัฒนาธุรกิจการค้า': '4 topics / 3 chunks', 'คอนโด': '4 topics / 13 chunks', 'ภพ20': '4 topics / 12 chunks', 'upload': '3 topics / 9 chunks', 'www.rd.go.th': '3 topics / 4 chunks', 'กระดาษ ภ.พ.20': '3 topics / 4 chunks', 'ขอใบทะเบียนแวทกี่ใบ': '3 topics / 4 chunks', 'ข้อ 5(4)': '3 topics / 4 chunks', 'ตัวอย่างใบทะเบียนภาษีมูลค่าเพิ่ม': '3 topics / 4 chunks', 'ตัวแทนเชิด': '3 topics / 5 chunks', 'ทะเบียนบ้าน': '3 topics / 14 chunks', 'ฟอร์มใบแวท': '3 topics / 4 chunks', 'ภ.พ.01': '3 topics / 6 chunks', 'ภ.พ.20 กับ ภ.พ.21 ต่างกันยังไง': '3 topics / 4 chunks', 'ภ.พ.21': '3 topics / 4 chunks', 'ภพ 20': '3 topics / 4 chunks', 'ภพ 21': '3 topics / 4 chunks', 'ภพ21': '3 topics / 4 chunks', 'ม.82/16': '3 topics / 4 chunks', 'ม.82/3': '3 topics / 4 chunks', 'หน้าตาใบทะเบียน': '3 topics / 4 chunks', 'หน้าตาใบทะเบียนแวท': '3 topics / 4 chunks', 'ห้องชุด': '3 topics / 6 chunks', 'แบบ ภ.พ.20': '3 topics / 4 chunks', 'แบบ ภ.พ.21': '3 topics / 4 chunks', 'แบบฟอร์ม': '3 topics / 4 chunks', 'แบบใบทะเบียน': '3 topics / 4 chunks', 'แพลตฟอร์ม': '3 topics / 6 chunks', 'ใบทะเบียนพาณิชย์': '3 topics / 4 chunks', 'ใบทะเบียนสาขา': '3 topics / 5 chunks', 'ได้ใบกี่ใบ': '3 topics / 4 chunks', 'ไม่ออกใบทะเบียน': '3 topics / 6 chunks'}
+  [WARN] 36 keyword กระจายอยู่ >= 3 topics → boost ไม่ช่วยแยกข้อ (บางตัวคือ keyword ที่ติดผิด chunk ดูหมวด alignment)
+           detail: {'dbd': '6 topics / 6 chunks', 'ภ.พ.20': '5 topics / 16 chunks', 'อาคารชุด': '5 topics / 14 chunks', 'กรมพัฒนาธุรกิจการค้า': '4 topics / 3 chunks', 'คอนโด': '4 topics / 13 chunks', 'ภพ20': '4 topics / 12 chunks', 'upload': '3 topics / 9 chunks', 'www.rd.go.th': '3 topics / 4 chunks', 'กระดาษ ภ.พ.20': '3 topics / 4 chunks', 'ขอใบทะเบียนแวทกี่ใบ': '3 topics / 4 chunks', 'ข้อ 5 ฉบับที่ 159': '3 topics / 6 chunks', 'ข้อ 5(4)': '3 topics / 4 chunks', 'ตัวอย่างใบทะเบียนภาษีมูลค่าเพิ่ม': '3 topics / 4 chunks', 'ตัวแทนเชิด': '3 topics / 5 chunks', 'ทะเบียนบ้าน': '3 topics / 14 chunks', 'ฟอร์มใบแวท': '3 topics / 4 chunks', 'ภ.พ.01': '3 topics / 6 chunks', 'ภ.พ.20 กับ ภ.พ.21 ต่างกันยังไง': '3 topics / 4 chunks', 'ภ.พ.21': '3 topics / 4 chunks', 'ภพ 20': '3 topics / 4 chunks', 'ภพ 21': '3 topics / 4 chunks', 'ภพ21': '3 topics / 4 chunks', 'ม.82/16': '3 topics / 4 chunks', 'ม.82/3': '3 topics / 4 chunks', 'หน้าตาใบทะเบียน': '3 topics / 4 chunks', 'หน้าตาใบทะเบียนแวท': '3 topics / 4 chunks', 'ห้องชุด': '3 topics / 6 chunks', 'แบบ ภ.พ.20': '3 topics / 4 chunks', 'แบบ ภ.พ.21': '3 topics / 4 chunks', 'แบบฟอร์ม': '3 topics / 4 chunks', 'แบบใบทะเบียน': '3 topics / 4 chunks', 'แพลตฟอร์ม': '3 topics / 6 chunks', 'ใบทะเบียนพาณิชย์': '3 topics / 4 chunks', 'ใบทะเบียนสาขา': '3 topics / 5 chunks', 'ได้ใบกี่ใบ': '3 topics / 4 chunks', 'ไม่ออกใบทะเบียน': '3 topics / 6 chunks'}
 
 == dictionary
   [WARN] section_3_exempt_opt_in: keyword สั้นเกินไป '81/3'
@@ -55,8 +53,6 @@
   [WARN] keyword 'ทะเบียนบ้าน' อยู่ใน 2 clauses → boost หลายข้อพร้อมกัน
            clauses: ['section_5_docs_general', 'section_5_premises_condo']
   [WARN] keyword 'ป้ายร้าน' อยู่ใน 2 clauses → boost หลายข้อพร้อมกัน
-           clauses: ['section_5_docs_general', 'section_5_premises_condo']
-  [WARN] keyword 'รูปถ่าย' อยู่ใน 2 clauses → boost หลายข้อพร้อมกัน
            clauses: ['section_5_docs_general', 'section_5_premises_condo']
   [WARN] keyword 'สรรพากรพื้นที่' อยู่ใน 2 clauses → boost หลายข้อพร้อมกัน
            clauses: ['section_4_location', 'section_9_signing_authority']
@@ -77,4 +73,4 @@
 == eval
   [INFO] user_intents รวม 582 คำถาม — ใช้เป็นชุดทดสอบ retrieval ได้ (คำถาม → chunk ที่ควรได้)
 
-สรุป: ERROR 0 | WARN 18 | INFO 16
+สรุป: ERROR 0 | WARN 14 | INFO 18

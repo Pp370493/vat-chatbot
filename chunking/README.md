@@ -16,6 +16,7 @@
 | `generate_synthetic_dataset.py`, `generate_updated_synthetic_dataset.py` | สคริปต์สร้างชุดข้อมูลจำลอง |
 | `batch_qa_audit_log.jsonl` | log ผลรัน batch Q&A |
 | `sources/` | PDF ต้นฉบับของประกาศ + สถานะการตรวจเทียบ (`scripts/compare_sources.py`) |
+| `reports/ตรวจตัวบท_เทียบต้นฉบับ.xlsx` | ไฟล์ให้ผู้ตรวจรับรองตัวบทเทียบต้นฉบับ (`scripts/build_review_sheet.py`) |
 | `agents/` | ต้นแบบ 8 agents + `orchestrator_pipeline.py` (lexical search, ไม่ใช้ LLM) |
 
 ## หลักการ: ตัวบทหลัก vs ตัวเสริม
@@ -73,6 +74,28 @@ python chunking/scripts/validate_chunks.py --json   # JSON
 ประกาศที่ถูกอ้างถึงแต่ไม่มีในชุดข้อมูล, คุณภาพ keyword, chunk ท้ายประกาศ,
 role/amends และตรวจว่าฉบับแก้ไขรุ่นล่าสุดถูกรวมเข้าตัวบทหลัก 57/159 แล้ว
 (exit code 1 ถ้ามี ERROR) — ผลล่าสุดอยู่ที่ [`reports/validation_report.txt`](reports/validation_report.txt)
+
+### keyword ของฉบับแก้ไข
+
+```bash
+python chunking/scripts/fix_keywords.py           # ดูสิ่งที่จะเปลี่ยน
+python chunking/scripts/fix_keywords.py --write   # เขียนลงไฟล์ chunk (รายฉบับ + all_10)
+```
+
+เปลี่ยน keyword "ข้อ N" ของฉบับแก้ไขที่เป็นเลขข้อของตัวเอง เป็นข้อของตัวบทหลักพร้อมฉบับ
+(เช่น `VAT139_ART_02`: "ข้อ 2" → "ข้อ 9 ฉบับที่ 57") ไม่แตะข้อความตัวบท ·
+`agents/agent3_rag_retrieval.py` ใช้ `kw_in()` จับ keyword ที่ลงท้ายด้วยเลขแบบไม่ให้ "ข้อ 1" ไปเจอใน "ข้อ 10"
+
+## ไฟล์ให้ผู้ตรวจรับรองตัวบท
+
+```bash
+pip install openpyxl
+python chunking/scripts/build_review_sheet.py
+```
+
+สร้าง [`reports/ตรวจตัวบท_เทียบต้นฉบับ.xlsx`](reports/) — 1 แถวต่อ chunk: ข้อความใน chunk
+(ตัวแดง = ไม่พบในต้นฉบับ) คู่กับข้อความช่วงเดียวกันจากไฟล์ต้นฉบับ พร้อมช่อง ✓/✗ ·
+แท็บ "ต้นฉบับที่ไม่อยู่ใน chunk" แสดงข้อความต้นฉบับที่ไม่มี chunk ครอบคลุม (ส่วนใหญ่คือหมายเหตุ "แก้ไขเพิ่มเติมโดย…" ในฉบับรวม)
 
 ## รันต้นแบบ
 

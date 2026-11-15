@@ -2,6 +2,7 @@
 
 ไฟล์ PDF ต้นฉบับของประกาศที่ใช้ทำ chunk ตั้งชื่อ `dgvat{เลขฉบับ}.pdf`
 เทียบกับตัวบทใน chunk ด้วย `python chunking/scripts/compare_sources.py --detail`
+ไฟล์ Excel ให้คนตรวจรับรองแบบข้างกัน: `python chunking/scripts/build_review_sheet.py` → `reports/ตรวจตัวบท_เทียบต้นฉบับ.xlsx`
 
 | ฉบับ | ไฟล์ | สถานะการตรวจเทียบกับ chunk |
 |---|---|---|
