@@ -917,7 +917,7 @@ export default function ChatPage() {
                         <button
                           onClick={() =>
                             handleSendMessage(
-                              "ต้องการยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มใหม่ (แบบ ภ.พ.01) แบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ ต้องใช้เอกสารอะไรบ้าง"
+                              "ยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มใหม่ (แบบ ภ.พ.01)"
                             )
                           }
                           className="p-3 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-900 border border-blue-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
@@ -995,7 +995,7 @@ export default function ChatPage() {
                         <button
                           onClick={() =>
                             handleSendMessage(
-                              "ต้องการยื่นคำขอจดทะเบียนแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ (ตามประกาศอธิบดีฯ ฉบับที่ 57) ต้องใช้เอกสารอะไรบ้าง"
+                              "ยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ (ฉบับที่ 57)"
                             )
                           }
                           className="p-3.5 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-900 border border-blue-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"
@@ -1011,7 +1011,7 @@ export default function ChatPage() {
                         <button
                           onClick={() =>
                             handleSendMessage(
-                              "ต้องการยื่นคำขอจดทะเบียนผ่านระบบอินเทอร์เน็ต www.rd.go.th (ตามประกาศอธิบดีฯ ฉบับที่ 159) ต้องใช้เอกสารอะไรบ้าง"
+                              "ยื่นผ่านอินเทอร์เน็ต www.rd.go.th (ฉบับที่ 159)"
                             )
                           }
                           className="p-3.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition text-left shadow-2xs hover:shadow-xs active:scale-98 group"

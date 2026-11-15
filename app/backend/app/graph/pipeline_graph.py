@@ -62,6 +62,61 @@ def _get_default_staff_id(db: Session) -> str:
     return new_staff.id
 
 
+PAPER_WORDS = [
+    "กระดาษ", "ยื่นด้วยตนเอง", "เดินไปยื่น", "สรรพากรพื้นที่", "สำนักงานสรรพากร",
+    "ฉบับที่ 57", "ฉบับ 57", "ภ.พ.01 3 ฉบับ", "ภพ01 กระดาษ",
+]
+INTERNET_WORDS = [
+    "อินเทอร์เน็ต", "อินเตอร์เน็ต", "เน็ต", "ออนไลน์", "online",
+    "rd.go.th", "ฉบับที่ 159", "ฉบับ 159", "คอนโด", "อาคารชุด", "แพลตฟอร์ม", "shopee", "lazada", "tiktok",
+]
+DBD_WORDS = ["dbd", "กรมพัฒนาธุรกิจ", "จัดตั้งบริษัท", "ฉบับที่ 234", "ฉบับ 234", "พร้อมจัดตั้ง"]
+
+CHANNEL_PHRASE = {
+    "paper": "ยื่นแบบกระดาษ ณ สำนักงานสรรพากรพื้นที่ ตามประกาศฉบับที่ 57",
+    "internet": "ยื่นผ่านระบบอินเทอร์เน็ต www.rd.go.th ตามประกาศฉบับที่ 159",
+    "dbd": "ยื่นพร้อมการจดทะเบียนจัดตั้งนิติบุคคลต่อกรมพัฒนาธุรกิจการค้า (DBD) ตามประกาศฉบับที่ 234",
+}
+# answer_summary ที่ branch clarification บันทึกไว้ — ใช้รู้ว่าเทิร์นก่อนหน้าเป็นคำถามซักถามแบบใด
+CHANNEL_CLARIFICATION_SUMMARY = "สอบถามช่องทางการยื่นจดทะเบียน VAT"
+PURPOSE_CLARIFICATION_SUMMARY = "สอบถามยืนยันประเภทการยื่นแบบ"
+PP01_CHOICE_RE = re.compile(r"ภ\.?พ\.?\s*01|จดทะเบียนภาษีมูลค่าเพิ่มใหม่|ขอจดทะเบียน")
+
+
+def detect_channel(text: str) -> str | None:
+    """ช่องทางที่ข้อความระบุ: paper (ฉบับ 57) / internet (ฉบับ 159) / dbd (ฉบับ 234) หรือ None"""
+    t = (text or "").lower()
+    if any(k in t for k in PAPER_WORDS):
+        return "paper"
+    if any(k in t for k in INTERNET_WORDS):
+        return "internet"
+    if any(k in t for k in DBD_WORDS):
+        return "dbd"
+    return None
+
+
+def merge_clarification_reply(text: str, history: list[dict]) -> str | None:
+    """
+    ถ้าเทิร์นก่อนหน้าระบบถามช่องทาง/วัตถุประสงค์ และข้อความนี้คือคำตอบของผู้ใช้
+    คืนคำถามเดิมที่เติมคำตอบนั้นแล้ว เพื่อให้ขั้นถัดไปค้นและตอบตามคำถามเดิม (ไม่ใช่ตามข้อความเลือกช่องทาง)
+    """
+    if not history:
+        return None
+    last = history[-1]
+    summary = last.get("answer_summary") or ""
+    original = (last.get("resolved_query") or "").strip()
+    if not original:
+        return None
+    if summary.startswith(CHANNEL_CLARIFICATION_SUMMARY):
+        channel = detect_channel(text)
+        if channel:
+            return f"{original} ({CHANNEL_PHRASE[channel]})"
+    elif summary.startswith(PURPOSE_CLARIFICATION_SUMMARY):
+        if PP01_CHOICE_RE.search(text or ""):
+            return f"{original} (ยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่ม แบบ ภ.พ.01)"
+    return None
+
+
 def check_channel_ambiguity(raw_text: str, history: list[dict]) -> tuple[bool, str | None]:
     """
     ตรวจสอบว่าคำถามเป็นเรื่องการจดทะเบียน VAT ที่ยังไม่ระบุช่องทางหรือไม่
@@ -72,38 +127,26 @@ def check_channel_ambiguity(raw_text: str, history: list[dict]) -> tuple[bool, s
     เช่น การจดล่วงหน้า 6 เดือน (ก่อสร้าง/เครื่องจักร), ข้อ 6 เหตุไม่ออกใบทะเบียน/นอมินี,
     ผู้มีอำนาจลงนาม (ข้อ 9), หรือการสละสิทธิยกเว้นภาษี (81/3)
     """
-    hist_text = " ".join([h.get("resolved_query", "") + " " + h.get("answer_summary", "") for h in history]).lower()
+    # ไม่นับ answer_summary ของคำถามซักถาม เพราะข้อความนั้นมีคำว่า "กระดาษ"/"อินเทอร์เน็ต" อยู่เองทุกครั้ง
+    hist_text = " ".join(
+        h.get("resolved_query", "") + " " + ("" if (h.get("answer_summary") or "").startswith(
+            (CHANNEL_CLARIFICATION_SUMMARY, PURPOSE_CLARIFICATION_SUMMARY)) else h.get("answer_summary", ""))
+        for h in history).lower()
     q_lower = raw_text.lower()
-    full_context = f"{hist_text} {q_lower}"
-
-    has_paper = any(k in full_context for k in [
-        "กระดาษ", "ยื่นด้วยตนเอง", "เดินไปยื่น", "สรรพากรพื้นที่", "สำนักงานสรรพากร",
-        "ฉบับที่ 57", "ฉบับ 57", "ภ.พ.01 3 ฉบับ", "ภพ01 กระดาษ"
-    ])
-    has_internet = any(k in full_context for k in [
-        "อินเทอร์เน็ต", "อินเตอร์เน็ต", "เน็ต", "ออนไลน์", "online",
-        "rd.go.th", "ฉบับที่ 159", "ฉบับ 159", "คอนโด", "อาคารชุด", "แพลตฟอร์ม", "shopee", "lazada", "tiktok"
-    ])
-    has_dbd = any(k in full_context for k in [
-        "dbd", "กรมพัฒนาธุรกิจ", "จัดตั้งบริษัท", "ฉบับที่ 234", "ฉบับ 234", "พร้อมจัดตั้ง"
-    ])
+    channel = detect_channel(f"{hist_text} {q_lower}")
 
     # คำถามที่มีพฤติการณ์ตามข้อ 6 (เหตุไม่ออกใบทะเบียน ซึ่งเหมือนกันทั้ง 57/159) ไม่ต้องถามช่องทาง
     # ให้ไปถึง Agent 6 เพื่อส่งต่อเจ้าหน้าที่
     if a6.find_risk_factors(raw_text):
         return False, None
 
-    if has_paper:
-        return False, "paper"
-    if has_internet:
-        return False, "internet"
-    if has_dbd:
-        return False, "dbd"
+    if channel:
+        return False, channel
 
     # ประเด็นเฉพาะที่กฎหมายเหมือนกันทั้ง 57 และ 159 หรือเป็นเอกเทศ ไม่ต้องถามช่องทาง
     self_contained_keywords = [
         "ก่อสร้างโรงงาน", "สร้างโรงงาน", "ก่อสร้างอาคาร", "สร้างอาคาร", "ติดตั้งเครื่องจักร", "สั่งซื้อเครื่องจักร", "ซื้อเครื่องจักร",
-        "6 เดือน", "หกเดือน", "ล่วงหน้ากี่เดือน", "จดล่วงหน้า", "ขอแวทล่วงหน้า", "ขอ vat ล่วงหน้า", "ล่วงหน้าได้กี่เดือน", "จดทะเบียนล่วงหน้า",
+        "6 เดือน", "หกเดือน", "ล่วงหน้า", "ล่วงหน้ากี่เดือน", "จดล่วงหน้า", "ขอแวทล่วงหน้า", "ขอ vat ล่วงหน้า", "ล่วงหน้าได้กี่เดือน", "จดทะเบียนล่วงหน้า",
         "นอมินี", "ตัวแทนเชิด", "แบล็กลิสต์", "สวมชื่อ", "สำนักงานบัญชีบังหน้า", "สำนักงานทนายความ",
         "ใครเซ็น", "เซ็นแทน", "ใครมีอำนาจ", "ผู้มีอำนาจลงนาม", "สรรพากรพื้นที่ลงนาม",
         "มาตรา 81/3", "81/3", "สละสิทธิ"
@@ -183,8 +226,12 @@ def run_pipeline(
         db.add(query)
         db.commit()
 
+        # 2.1 ถ้าเทิร์นก่อนหน้าระบบถามช่องทาง/วัตถุประสงค์ ให้รวมคำตอบเข้ากับคำถามเดิม
+        # (เดิมระบบค้นตัวบทจากข้อความเลือกช่องทางอย่างเดียว คำถามเดิมจึงหาย)
+        effective_text = merge_clarification_reply(sanitized_text, history) or sanitized_text
+
         # 3. Agent 1: Intent & Scope Classification
-        intent = a1.classify(sanitized_text, history)
+        intent = a1.classify(effective_text, history)
         query.in_scope = intent["in_scope"]
         query.sub_intent = intent["sub_intent"]
         query.scope_confidence = intent["confidence"]
@@ -208,7 +255,7 @@ def run_pipeline(
                     "topic_keywords": kws or [],
                     "contact_channel": d.contact_channel,
                 })
-            route = a2.route(sanitized_text, depts)
+            route = a2.route(effective_text, depts)
 
             oos = OutOfScopeRoute(
                 id=gen_uuid(),
@@ -291,7 +338,7 @@ def run_pipeline(
                 citations=citations,
             )
             db.add(draft_ans)
-            query.resolved_query = sanitized_text
+            query.resolved_query = effective_text
             query.answer_summary = "สอบถามยืนยันประเภทการยื่นแบบ (ภ.พ.01 / ภ.พ.09 / ภ.พ.30 / ภ.ง.ด.)"
             query.status = "answered"
             db.commit()
@@ -300,7 +347,7 @@ def run_pipeline(
                 "query_id": query.id,
                 "conversation_id": conv.id,
                 "turn_number": turn_number,
-                "resolved_query": sanitized_text,
+                "resolved_query": effective_text,
                 "type": "clarification",
                 "payload": {
                     "draft_text": purpose_text,
@@ -314,7 +361,7 @@ def run_pipeline(
             }
 
         # 3.5 ตรวจสอบความกำกวมของช่องทาง (ถามก่อนเพื่อเช็คให้ชัวร์ว่ายื่นแบบกระดาษ ฉบับ 57 หรือ อินเทอร์เน็ต ฉบับ 159)
-        is_ambiguous, detected_channel = check_channel_ambiguity(sanitized_text, history)
+        is_ambiguous, detected_channel = check_channel_ambiguity(effective_text, history)
         if is_ambiguous:
             clarification_text = (
                 "การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่ม (VAT) มีข้อกำหนด ขั้นตอน และเอกสารหลักฐานที่แตกต่างกันตามช่องทางการยื่นคำขอ\n\n"
@@ -334,7 +381,7 @@ def run_pipeline(
                 citations=citations,
             )
             db.add(draft_ans)
-            query.resolved_query = sanitized_text
+            query.resolved_query = effective_text
             query.answer_summary = "สอบถามช่องทางการยื่นจดทะเบียน VAT (กระดาษ ฉบับ 57 / อินเทอร์เน็ต ฉบับ 159 / DBD ฉบับ 234)"
             query.status = "answered"
             db.commit()
@@ -343,7 +390,7 @@ def run_pipeline(
                 "query_id": query.id,
                 "conversation_id": conv.id,
                 "turn_number": turn_number,
-                "resolved_query": sanitized_text,
+                "resolved_query": effective_text,
                 "type": "clarification",
                 "payload": {
                     "draft_text": clarification_text,
@@ -356,7 +403,7 @@ def run_pipeline(
             }
 
         # 4. Agent 3: Query Resolution & RAG Retrieval
-        resolved_query = a3.resolve_query(raw_text, history)
+        resolved_query = a3.resolve_query(effective_text, history)
         query.resolved_query = resolved_query
 
         retrieval = a3.retrieve(resolved_query)
@@ -396,22 +443,47 @@ def run_pipeline(
         query.status = "retrieved"
         db.commit()
 
-        # 5. Agent 4: Responder
-        try:
-            draft = a4.respond(resolved_query, chunks)
-        except Exception as e:
-            # Fallback สรุปจากตัวบทกฎหมายโดยตรงกรณี Ollama บน Local CPU ประมวลผลล่าช้า
-            bullet_points = []
-            for c in chunks[:2]:
-                txt = c.get("text", "").replace("\n", " ").strip()
-                clean_snippet = txt[:240].strip()
-                bullet_points.append(f"• **{c.get('citation') or c['source_section']}:** {clean_snippet}")
-            summary_from_chunks = "\n\n".join(bullet_points)
-            draft = {
-                "draft_text": f"สรุปสาระสำคัญและหลักเกณฑ์การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มตามตัวบทกฎหมาย:\n\n{summary_from_chunks}\n\n• **การดำเนินการ:** ให้ผู้ประกอบการจัดเตรียมคำขอและเอกสารหลักฐานให้ถูกต้องครบถ้วนตามหลักเกณฑ์ที่ระบุข้างต้น",
-                "citations": [{"text_span": c.get("citation") or c["source_section"], "source_section": c.get("citation") or c["source_section"]} for c in chunks[:len(bullet_points)]],
-                "answer_summary": "สรุปสาระสำคัญจากตัวบทกฎหมายที่เกี่ยวข้อง",
-            }
+        # 5. ประเมินความเสี่ยงล่วงหน้า (rule-based): Agent 5 ให้คะแนนได้ไม่เกิน a5.MAX_CONFIDENCE
+        # ถ้าที่คะแนนสูงสุดนั้นยังไม่ใช่ auto_answer เคสนี้ต้องส่งเจ้าหน้าที่แน่นอน — ไม่ต้องรอ LLM ร่างคำตอบ
+        # (บน CPU ใช้ราว 2 นาที) ผู้ถามได้ผลทันที และหัวหน้างานได้สรุปเคสพร้อมตัวบทและร่างคร่าวๆ แทน
+        pre_risk = a6.assess_risk(effective_text, a5.MAX_CONFIDENCE)
+        if pre_risk["tier"] != "auto_answer":
+            channel = detect_channel(effective_text)
+            art6_ids = {"paper": ["VAT57_ART_06"], "internet": ["VAT159_ART_06"]}.get(
+                channel, ["VAT57_ART_06", "VAT159_ART_06"])
+            art6 = [{"chunk_id": a.id, "text": a.content, "citation": a3.legal_citation(a.id, a.source_section)}
+                    for a in db.query(KbArticle).filter(KbArticle.id.in_(art6_ids)).order_by(KbArticle.id.desc()).all()]
+            draft = a6.build_review_brief(resolved_query, chunks, pre_risk, art6)
+            verification = {"confidence_score": a5.MAX_CONFIDENCE, "ungrounded_claims": []}
+            risk = pre_risk
+        else:
+            # 5.1 Agent 4: Responder
+            try:
+                draft = a4.respond(resolved_query, chunks)
+            except Exception:
+                # Fallback สรุปจากตัวบทกฎหมายโดยตรงกรณี Ollama บน Local CPU ประมวลผลล่าช้า
+                summary_from_chunks, fb_citations = a4.summarize_chunks(chunks, n=2)
+                draft = {
+                    "draft_text": f"สรุปสาระสำคัญและหลักเกณฑ์การยื่นคำขอจดทะเบียนภาษีมูลค่าเพิ่มตามตัวบทกฎหมาย:\n\n{summary_from_chunks}\n\n• **การดำเนินการ:** ให้ผู้ประกอบการจัดเตรียมคำขอและเอกสารหลักฐานให้ถูกต้องครบถ้วนตามหลักเกณฑ์ที่ระบุข้างต้น",
+                    "citations": fb_citations,
+                    "answer_summary": "สรุปสาระสำคัญจากตัวบทกฎหมายที่เกี่ยวข้อง",
+                }
+
+            # 6. Agent 5: Verifier (Regex + Grounding check)
+            verification = a5.verify_regex(draft["draft_text"], chunks)
+
+            # 7. Agent 6: Risk & Tier Decision (Rule-based)
+            risk = a6.assess_risk(effective_text, verification["confidence_score"])
+
+            # ถ้าเข้าข่าย senior_review และยังไม่มี risk_factors เชิงโครงสร้างจาก rule-based ให้เรียก Deep LLM Verification เพิ่มเติม
+            if risk["tier"] == "senior_review" and not risk.get("risk_factors"):
+                try:
+                    deep = a5.verify_deep_llm(draft["draft_text"], chunks)
+                    verification["confidence_score"] = min(verification["confidence_score"], deep["confidence_score"])
+                    risk = a6.assess_risk(effective_text, verification["confidence_score"])
+                except Exception:
+                    pass
+
         draft_ans = DraftAnswer(
             id=gen_uuid(),
             query_id=query.id,
@@ -422,21 +494,6 @@ def run_pipeline(
         query.answer_summary = draft["answer_summary"]
         query.status = "drafted"
         db.commit()
-
-        # 6. Agent 5: Verifier (Regex + Grounding check)
-        verification = a5.verify_regex(draft["draft_text"], chunks)
-
-        # 7. Agent 6: Risk & Tier Decision (Rule-based)
-        risk = a6.assess_risk(raw_text, verification["confidence_score"])
-
-        # ถ้าเข้าข่าย senior_review และยังไม่มี risk_factors เชิงโครงสร้างจาก rule-based ให้เรียก Deep LLM Verification เพิ่มเติม
-        if risk["tier"] == "senior_review" and not risk.get("risk_factors"):
-            try:
-                deep = a5.verify_deep_llm(draft["draft_text"], chunks)
-                verification["confidence_score"] = min(verification["confidence_score"], deep["confidence_score"])
-                risk = a6.assess_risk(raw_text, verification["confidence_score"])
-            except Exception:
-                pass
 
         ver_score = VerificationScore(
             id=gen_uuid(),

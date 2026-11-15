@@ -76,3 +76,74 @@ def assess_risk(raw_text: str, confidence_score: float) -> dict:
         "trust_score": trust_score,
         "tier": tier,
     }
+
+
+# ---- สรุปเคสสำหรับหัวหน้างาน (ไม่ใช้ LLM) — ใช้เมื่อรู้ตั้งแต่ก่อนร่างคำตอบว่าต้องส่งตรวจ
+_CLAUSE_NUM_RE = re.compile(r"\((\d)\)")
+
+
+def clause_text(art6_text: str, num: str) -> str:
+    """ตัดข้อความอนุข้อ (num) ออกจากตัวบทข้อ 6 — ถึงก่อนอนุข้อถัดไป"""
+    m = re.search(rf"\({num}\)\s*(.+?)(?=\n\(\d\)|\Z)", art6_text or "", re.S)
+    return " ".join(m.group(1).split()) if m else ""
+
+
+def _with_clauses(citation: str, nums: list[str]) -> str:
+    """'...ข้อ 6 ซึ่งแก้ไข...' -> '...ข้อ 6(7), (8) ซึ่งแก้ไข...'"""
+    clauses = ", ".join(f"({n})" for n in dict.fromkeys(nums))
+    return citation.replace(" ข้อ 6", f" ข้อ 6{clauses}", 1) if " ข้อ 6" in citation else f"{citation} {clauses}"
+
+
+def build_review_brief(resolved_query: str, chunks: list[dict], risk: dict, art6: list[dict]) -> dict:
+    """
+    คืน {draft_text, citations, answer_summary} สำหรับคิวหัวหน้างาน
+    art6: ตัวบทข้อ 6 ของช่องทางที่เกี่ยวข้อง [{chunk_id, text, citation}] (57 = กระดาษ, 159 = อินเทอร์เน็ต)
+    """
+    from app.agents.agent4_responder import summarize_chunks  # import ภายในเพื่อเลี่ยง import วน
+
+    factors = risk.get("risk_factors") or []
+    parts = [
+        "📋 **สรุปเคสสำหรับหัวหน้างาน** (ระบบสร้างจากกฎ ไม่ได้ใช้ AI ร่าง — กรุณาตรวจและแก้ก่อนตอบ)",
+        f"**คำถาม:** {resolved_query}",
+        f"**ระดับ:** {risk.get('tier')} · risk {risk.get('risk_score')} · trust {risk.get('trust_score')}",
+    ]
+    citations: list[dict] = []
+    nums_by_art: dict[str, list[str]] = {}
+
+    issue_lines = []
+    for label in factors:
+        nums = _CLAUSE_NUM_RE.findall(label.split(" ", 2)[1]) if label.startswith("ข้อ 6") else []
+        issue_lines.append(f"• **{label}**")
+        for num in nums:
+            for a in art6:
+                txt = clause_text(a["text"], num)
+                if txt:
+                    ref = _with_clauses(a["citation"], [num])
+                    issue_lines.append(f"  - {ref}: {txt}")
+                    nums_by_art.setdefault(a["citation"], []).append(num)
+                    citations.append({"text_span": ref, "source_section": a["citation"]})
+    issue_refs = [_with_clauses(cit, nums) for cit, nums in nums_by_art.items()]
+    parts.append("**ประเด็นที่อาจขัดกับตัวบท:**\n" + ("\n".join(issue_lines) if issue_lines else
+                                                     "• ไม่พบเหตุตามข้อ 6 โดยตรง — ระดับความเชื่อมั่นต่ำ ต้องพิจารณาข้อเท็จจริงเพิ่มเติม"))
+
+    summary, chunk_citations = summarize_chunks(chunks, n=3)
+    if summary:
+        parts.append("**ตัวบทที่เกี่ยวข้อง (จากการค้น):**\n" + summary)
+    for c in chunk_citations:
+        if c not in citations:
+            citations.append(c)
+
+    if issue_refs:
+        named = ", ".join(label.split(" ", 2)[-1] if label.startswith("ข้อ 6") else label for label in factors)
+        draft = (f"กรณีตามข้อเท็จจริงที่แจ้ง อาจเข้าลักษณะ{named} ตาม{' และ'.join(issue_refs)} "
+                 "ซึ่งเจ้าพนักงานสรรพากรจะไม่ออกใบทะเบียนภาษีมูลค่าเพิ่มให้ หากตรวจสอบข้อเท็จจริงแล้วปรากฏเช่นนั้น "
+                 "ขอให้ผู้ประกอบการยื่นคำขอและเอกสารหลักฐานตามข้อเท็จจริง")
+    else:
+        draft = "(โปรดพิจารณาข้อเท็จจริงเพิ่มเติมก่อนตอบ — ระบบไม่พบเหตุตามข้อ 6 ที่ชัดเจน)"
+    parts.append("**ร่างคำตอบเบื้องต้น:**\n" + draft)
+
+    return {
+        "draft_text": "\n\n".join(parts),
+        "citations": citations,
+        "answer_summary": ("ส่งหัวหน้างานตรวจ: " + "; ".join(factors))[:200] if factors else "ส่งหัวหน้างานตรวจ",
+    }

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     if (backendUrl) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout for backend
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s — เท่ากับที่ backend รอ Ollama; บน CPU ตอบจริงใช้ราว 1.5–2 นาที
         const res = await fetch(`${backendUrl}/api/v1/chat/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -17,6 +17,11 @@ import numpy as np
 SECTION_PATTERN = re.compile(r"(?:มาตรา|ข้อ)\s*\d+(?:/\d+)?(?:\([ก-ฮ0-9]+\))*")
 
 
+# คะแนนสูงสุดที่ verify_regex ให้ได้ (verify_deep_llm ใช้ลดคะแนนได้อย่างเดียว)
+# pipeline ใช้ค่านี้ประเมินล่วงหน้าว่าเคสต้องส่งเจ้าหน้าที่แน่นอนหรือไม่ ก่อนเรียก LLM
+MAX_CONFIDENCE = 0.90
+
+
 def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
@@ -39,7 +44,7 @@ def verify_regex(draft_text: str, chunks: list[dict]) -> dict:
     ungrounded = [s for s in cited_sections if s not in source_text]
     
     # Grounding check: เทียบความสอดคล้องของคำสำคัญในคำตอบกับ Chunk ที่ดึงมา (0ms latency)
-    confidence = 0.90
+    confidence = MAX_CONFIDENCE
     if chunks:
         chunk_words = set(re.findall(r"[\w]+", source_text.lower()))
         draft_words = set(re.findall(r"[\w]+", draft_text.lower()))

@@ -94,3 +94,15 @@ def respond(resolved_query: str, chunks: list[dict]) -> dict:
         "citations": citations,
         "answer_summary": answer_summary,
     }
+
+
+def summarize_chunks(chunks: list[dict], n: int = 2, width: int = 240) -> tuple[str, list[dict]]:
+    """สรุปตัวบทแบบไม่ใช้ LLM: bullet '• **อ้างอิง:** ข้อความย่อ' และรายการ citations
+    ใช้ทั้งเป็น fallback เมื่อ Ollama ล้มเหลว และในสรุปเคสสำหรับหัวหน้างาน (Agent 6)"""
+    bullets, citations = [], []
+    for c in chunks[:n]:
+        ref = c.get("citation") or c.get("source_section", "")
+        snippet = " ".join((c.get("text") or "").split())[:width].strip()
+        bullets.append(f"• **{ref}:** {snippet}")
+        citations.append({"text_span": ref, "source_section": ref})
+    return "\n\n".join(bullets), citations
