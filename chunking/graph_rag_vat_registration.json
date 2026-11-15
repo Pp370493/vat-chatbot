@@ -3,10 +3,10 @@
     "title": "Graph RAG: แผนผังความสัมพันธ์และการสืบทอดกฎหมายจดทะเบียนภาษีมูลค่าเพิ่ม (VAT Registration)",
     "description": "โครงสร้างกราฟองค์ความรู้ (Knowledge Graph) สำหรับระบบ Graph RAG เพื่อให้ Chatbot เข้าใจสายวิวัฒนาการของกฎหมาย การยกเลิก/แทนที่ (Supersede) และความเชื่อมโยงของแต่ละหัวข้อจากประกาศทั้ง 10 ฉบับ",
     "total_announcements": 10,
-    "total_topics": 10,
+    "total_topics": 11,
     "total_chunks": 75,
-    "total_nodes": 95,
-    "total_edges": 178
+    "total_nodes": 96,
+    "total_edges": 181
   },
 
   "nodes": {
@@ -237,6 +237,13 @@
         "label": "การจด VAT พร้อมจัดตั้งนิติบุคคลผ่าน DBD",
         "description": "ช่องทาง Single Window ยื่นจดจัดตั้งบริษัทพร้อมจดทะเบียนภาษีมูลค่าเพิ่มที่กรมพัฒนาธุรกิจการค้า",
         "current_rule": "บังคับใช้ตามฉบับ 234 (ตั้งแต่ 20 เม.ย. 2563)"
+      },
+      {
+        "id": "TOPIC_DIRECTOR_RULING",
+        "type": "topic",
+        "label": "อำนาจวินิจฉัยของอธิบดีกรมสรรพากร",
+        "description": "ข้อ 10: กรณีมีปัญหาในการปฏิบัติ ให้อธิบดีกรมสรรพากรมีอำนาจวินิจฉัย และคำวินิจฉัยถือเป็นหลักเกณฑ์ตามประกาศ",
+        "current_rule": "ฉบับ 57 ข้อ 10 (เพิ่มโดยฉบับ 74) / ฉบับ 159 ข้อ 10"
       }
     ],
 
@@ -433,7 +440,10 @@
       {"source": "VAT234_ART_04", "target": "TOPIC_DBD", "channel": "DBD"},
       {"source": "VAT234_ART_05", "target": "TOPIC_DBD", "channel": "DBD"},
       {"source": "VAT234_ART_07", "target": "TOPIC_DBD", "channel": "DBD"},
-      {"source": "VAT234_ART_ATTACHMENT", "target": "TOPIC_DBD", "channel": "DBD"}
+      {"source": "VAT234_ART_ATTACHMENT", "target": "TOPIC_DBD", "channel": "DBD"},
+      {"source": "VAT57_ART_10", "target": "TOPIC_DIRECTOR_RULING", "channel": "Walk-in"},
+      {"source": "VAT74_ART_10", "target": "TOPIC_DIRECTOR_RULING", "channel": "Walk-in (ประวัติเก่า)"},
+      {"source": "VAT159_ART_10", "target": "TOPIC_DIRECTOR_RULING", "channel": "Online"}
     ],
 
     "legal_evolution_lineage": [
