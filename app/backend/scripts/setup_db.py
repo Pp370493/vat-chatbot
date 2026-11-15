@@ -52,7 +52,11 @@ def main():
     print(f"database: {settings.database_url}")
     Base.metadata.create_all(bind=engine)
     if args.ingest:
-        from app.core.kb_ingest import ingest_articles
+        from app.core.kb_ingest import check_ollama, ingest_articles
+        problem = check_ollama(settings.ollama_base_url_fallback, settings.embedding_model or "nomic-embed-text")
+        if problem:
+            print(problem)
+            sys.exit(1)
         ingest_articles()
 
     db = SessionLocal()
