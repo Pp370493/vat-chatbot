@@ -6,16 +6,21 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from app.core.security import require_roles
 from app.db.session import get_db
-from app.models.models import Escalation, Query, DraftAnswer, RiskAssessment, VerificationScore, AuditLog, gen_uuid
+from app.models.models import (
+    Escalation, Query, DraftAnswer, RiskAssessment, VerificationScore, AuditLog, StaffUser, gen_uuid,
+)
 
 router = APIRouter(prefix="/api/v1/escalations", tags=["escalations"])
+reviewer = require_roles("senior_officer", "admin")
 
 
 @router.get("")
 def list_escalations(
     tier: str | None = None,
     status: str = "pending",
+    _: StaffUser = Depends(reviewer),
     db: Session = Depends(get_db)
 ):
     """
@@ -62,13 +67,13 @@ def list_escalations(
 class DecisionRequest(BaseModel):
     decision: str  # approved | edited | rejected
     final_answer: str
-    reviewed_by: str | None = None
 
 
 @router.post("/{escalation_id}/decision")
 def submit_decision(
     escalation_id: str,
     req: DecisionRequest,
+    user: StaffUser = Depends(reviewer),
     db: Session = Depends(get_db)
 ):
     """
@@ -77,10 +82,12 @@ def submit_decision(
     esc = db.query(Escalation).filter(Escalation.id == escalation_id).first()
     if not esc:
         raise HTTPException(status_code=404, detail="Escalation not found")
+    if req.decision not in ("approved", "edited", "rejected"):
+        raise HTTPException(status_code=400, detail="decision ต้องเป็น approved, edited หรือ rejected")
 
     esc.decision = req.decision
     esc.final_answer = req.final_answer
-    esc.reviewed_by = req.reviewed_by
+    esc.reviewed_by = user.id
     esc.reviewed_at = datetime.utcnow()
 
     # อัปเดตสถานะ Query ให้เป็น answered
@@ -97,10 +104,10 @@ def submit_decision(
             "escalation_id": escalation_id,
             "decision": req.decision,
             "final_answer": req.final_answer,
-            "reviewed_by": req.reviewed_by,
+            "reviewed_by": user.id,
         },
         actor_type="staff",
-        actor_id=req.reviewed_by,
+        actor_id=user.id,
     )
     db.add(audit)
     db.commit()

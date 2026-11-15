@@ -46,21 +46,28 @@ def sanitize_pii(text: str) -> str:
 
 
 def _get_default_staff_id(db: Session) -> str:
-    staff = db.query(StaffUser).first()
+    """
+    บัญชีระบบสำหรับสคริปต์/การทดสอบที่เรียก run_pipeline โดยไม่มีผู้ใช้ (API ส่งผู้ใช้จาก token เสมอ)
+    is_active=False และรหัสผ่านใช้ไม่ได้ จึงเข้าสู่ระบบด้วยบัญชีนี้ไม่ได้
+    """
+    from app.core.security import UNUSABLE_PASSWORD
+    staff = db.query(StaffUser).filter(StaffUser.email == SYSTEM_USER_EMAIL).first()
     if staff:
         return staff.id
-    # สร้าง default staff user ถ้ายังไม่มี
-    new_staff = StaffUser(
+    staff = StaffUser(
         id=gen_uuid(),
-        full_name="นายสมชาย หน้างาน (Officer)",
-        email="officer@rd.go.th",
-        password_hash="pass1234",
+        full_name="System (scripts)",
+        email=SYSTEM_USER_EMAIL,
+        password_hash=UNUSABLE_PASSWORD,
         role="officer",
+        is_active=False,
     )
-    db.add(new_staff)
+    db.add(staff)
     db.commit()
-    return new_staff.id
+    return staff.id
 
+
+SYSTEM_USER_EMAIL = "system@local"
 
 PAPER_WORDS = [
     "กระดาษ", "ยื่นด้วยตนเอง", "เดินไปยื่น", "สรรพากรพื้นที่", "สำนักงานสรรพากร",
@@ -127,11 +134,9 @@ def check_channel_ambiguity(raw_text: str, history: list[dict]) -> tuple[bool, s
     เช่น การจดล่วงหน้า 6 เดือน (ก่อสร้าง/เครื่องจักร), ข้อ 6 เหตุไม่ออกใบทะเบียน/นอมินี,
     ผู้มีอำนาจลงนาม (ข้อ 9), หรือการสละสิทธิยกเว้นภาษี (81/3)
     """
-    # ไม่นับ answer_summary ของคำถามซักถาม เพราะข้อความนั้นมีคำว่า "กระดาษ"/"อินเทอร์เน็ต" อยู่เองทุกครั้ง
-    hist_text = " ".join(
-        h.get("resolved_query", "") + " " + ("" if (h.get("answer_summary") or "").startswith(
-            (CHANNEL_CLARIFICATION_SUMMARY, PURPOSE_CLARIFICATION_SUMMARY)) else h.get("answer_summary", ""))
-        for h in history).lower()
+    # ดูช่องทางจากคำถามของผู้ใช้ในเทิร์นก่อนๆ เท่านั้น ไม่ดูคำตอบของระบบ — คำตอบมักมีคำว่า "สำนักงานสรรพากร"
+    # ทำให้คำถามถัดไปในบทสนทนาถูกเดาว่าเป็นการยื่นแบบกระดาษทั้งที่ผู้ใช้ไม่ได้บอก
+    hist_text = " ".join(h.get("resolved_query", "") for h in history).lower()
     q_lower = raw_text.lower()
     channel = detect_channel(f"{hist_text} {q_lower}")
 

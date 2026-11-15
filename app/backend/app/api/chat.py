@@ -2,51 +2,65 @@
 API 5.1 Chat Flow — อ้างอิง VAT_CoPilot_IS_Full_Handoff.md
 เชื่อมต่อ Database Persistence จริงตาม State Flow
 """
-import uuid
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from app.core.security import get_current_user
 from app.db.session import get_db
 from app.graph.pipeline_graph import run_pipeline
 from app.models.models import (
     Query, DraftAnswer, Escalation, DocumentChecklistItem, FormAssistanceSession,
-    KbArticle, Conversation, gen_uuid
+    KbArticle, Conversation, StaffUser, gen_uuid
 )
 from app.agents import agent7_checklist_assistant as a7
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 class QueryRequest(BaseModel):
     session_id: str
     conversation_id: str | None = None
     text: str
-    staff_user_id: str | None = None
+
+
+def _owns_query(db: Session, user: StaffUser, query_rec: Query) -> bool:
+    """เจ้าหน้าที่เห็นเฉพาะคำถามของตนเอง หัวหน้างานและผู้ดูแลระบบเห็นทั้งหมด"""
+    if user.role in ("senior_officer", "admin"):
+        return True
+    conv = db.query(Conversation).filter(Conversation.id == query_rec.conversation_id).first()
+    return bool(conv and conv.staff_user_id == user.id)
 
 
 @router.post("/query")
-def chat_query(req: QueryRequest, db: Session = Depends(get_db)):
+def chat_query(req: QueryRequest, user: StaffUser = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     รับคำถามและส่งต่อเข้าสู่ Multi-Agent Pipeline
     บันทึกทุกขั้นตอนลง SQLite ครบถ้วน
     """
+    if req.conversation_id:
+        conv = db.query(Conversation).filter(Conversation.id == req.conversation_id).first()
+        if conv and conv.staff_user_id != user.id:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ในบทสนทนานี้")
     result = run_pipeline(
         raw_text=req.text,
         session_id=req.session_id,
         conversation_id=req.conversation_id,
-        staff_user_id=req.staff_user_id,
+        staff_user_id=user.id,
         db=db,
     )
     return result
 
 
 @router.get("/query/{query_id}/status")
-def get_query_status(query_id: str, db: Session = Depends(get_db)):
+def get_query_status(query_id: str, user: StaffUser = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     ตรวจสอบสถานะคำถาม (สำหรับเคสที่รอ Supervisor Review)
     """
     query_rec = db.query(Query).filter(Query.id == query_id).first()
-    if not query_rec:
+    if not query_rec or not _owns_query(db, user, query_rec):
         raise HTTPException(status_code=404, detail="Query not found")
 
     draft_rec = db.query(DraftAnswer).filter(DraftAnswer.query_id == query_id).first()
@@ -69,19 +83,15 @@ def get_query_status(query_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/inquiries/recent")
-def get_recent_inquiries(user_id: str | None = None, limit: int = 5, db: Session = Depends(get_db)):
+def get_recent_inquiries(limit: int = 5, user: StaffUser = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    ดึงประวัติข้อหารือ 5 ครั้งล่าสุดของผู้ใช้ที่ระบุ (หรือบทสนทนาล่าสุด)
-    สำหรับแสดงบน Sidebar ด้านซ้าย
+    ประวัติข้อหารือล่าสุดของผู้ใช้ที่เข้าสู่ระบบอยู่ (แสดงบน Sidebar ด้านซ้าย)
     """
-    q_filter = db.query(Query)
-    if user_id:
-        # ดึง conversation ที่เป็นของผู้ใช้นี้
-        user_conv_ids = [c.id for c in db.query(Conversation).filter(Conversation.staff_user_id == user_id).all()]
-        if user_conv_ids:
-            q_filter = q_filter.filter(Query.conversation_id.in_(user_conv_ids))
-        else:
-            return []
+    limit = max(1, min(limit, 50))
+    user_conv_ids = [c.id for c in db.query(Conversation).filter(Conversation.staff_user_id == user.id).all()]
+    if not user_conv_ids:
+        return []
+    q_filter = db.query(Query).filter(Query.conversation_id.in_(user_conv_ids))
 
     recent_queries = (
         q_filter.order_by(Query.created_at.desc())
@@ -113,7 +123,7 @@ class GenerateChecklistRequest(BaseModel):
 
 
 @router.post("/form-session/generate-checklist")
-def generate_checklist_endpoint(req: GenerateChecklistRequest):
+def generate_checklist_endpoint(req: GenerateChecklistRequest, _: StaffUser = Depends(get_current_user)):
     """
     สร้าง Checklist รายการเอกสารตามหลักเกณฑ์ข้อ 5 ของประกาศอธิบดีฯ ฉบับที่ 57 หรือ 159
     โดยตรวจสอบคุณลักษณะของผู้ยื่นขอจดทะเบียนก่อน
@@ -131,11 +141,13 @@ class EvaluateChecklistRequest(BaseModel):
     profile: dict
     items: list[dict]
     session_id: str | None = None
-    staff_user_id: str | None = None
+    query_id: str | None = None
 
 
 @router.post("/form-session/evaluate-checklist")
-def evaluate_checklist_endpoint(req: EvaluateChecklistRequest, db: Session = Depends(get_db)):
+def evaluate_checklist_endpoint(
+    req: EvaluateChecklistRequest, user: StaffUser = Depends(get_current_user), db: Session = Depends(get_db)
+):
     """
     ประเมินผลการตรวจรับเอกสารของเจ้าหน้าที่ (Human-Controlled Verification)
     AI สรุปผลว่ายื่นครบถ้วนหรือขาดเอกสารอะไรบ้างตามข้อ 5 และแจ้งเตือนผลตามข้อ 6
@@ -147,11 +159,19 @@ def evaluate_checklist_endpoint(req: EvaluateChecklistRequest, db: Session = Dep
         session_id = req.session_id or gen_uuid()
         form_session = db.query(FormAssistanceSession).filter(FormAssistanceSession.id == session_id).first()
         if not form_session:
-            # หา query ล่าสุดถ้ามี
-            last_q = db.query(Query).order_by(Query.created_at.desc()).first()
+            # ผูกกับคำถามที่ระบุ (ต้องเป็นของผู้ใช้เอง) หรือคำถามล่าสุดของผู้ใช้คนนี้ — ไม่ผูกกับของคนอื่น
+            linked_q = db.query(Query).filter(Query.id == req.query_id).first() if req.query_id else None
+            if linked_q and not _owns_query(db, user, linked_q):
+                linked_q = None
+            if not linked_q:
+                conv_ids = [c.id for c in db.query(Conversation).filter(Conversation.staff_user_id == user.id).all()]
+                linked_q = (db.query(Query).filter(Query.conversation_id.in_(conv_ids))
+                            .order_by(Query.created_at.desc()).first()) if conv_ids else None
+            if not linked_q:
+                return eval_result  # ยังไม่มีคำถามของผู้ใช้ให้ผูก — คืนผลประเมินโดยไม่บันทึก
             form_session = FormAssistanceSession(
                 id=session_id,
-                query_id=last_q.id if last_q else gen_uuid(),
+                query_id=linked_q.id,
                 conversation_log=[{"profile": req.profile, "evaluation": eval_result}],
                 is_complete=eval_result["is_complete"],
             )
@@ -165,12 +185,13 @@ def evaluate_checklist_endpoint(req: EvaluateChecklistRequest, db: Session = Dep
                 form_assistance_session_id=session_id,
                 document_name=item.get("title", ""),
                 status=item.get("status", "pending"),
-                marked_by=req.staff_user_id,
+                marked_by=user.id,
             )
             db.add(doc_item)
         db.commit()
     except Exception as e:
-        print("[WARN] Checklist DB save skipped:", e)
+        db.rollback()
+        logger.warning("Checklist DB save skipped: %s", e)
 
     return eval_result
 
@@ -178,20 +199,27 @@ def evaluate_checklist_endpoint(req: EvaluateChecklistRequest, db: Session = Dep
 class ChecklistItemRequest(BaseModel):
     document_name: str
     status: str  # received | missing | not_applicable
-    marked_by: str
 
 
 @router.post("/form-session/{session_id}/checklist-item")
-def mark_checklist_item(session_id: str, req: ChecklistItemRequest, db: Session = Depends(get_db)):
+def mark_checklist_item(
+    session_id: str, req: ChecklistItemRequest, user: StaffUser = Depends(get_current_user), db: Session = Depends(get_db)
+):
     """
     เจ้าหน้าที่ทำเครื่องหมายสถานะเอกสารใน Checklist เอง (Human-controlled)
     """
+    form_session = db.query(FormAssistanceSession).filter(FormAssistanceSession.id == session_id).first()
+    linked_q = db.query(Query).filter(Query.id == form_session.query_id).first() if form_session else None
+    if not linked_q or not _owns_query(db, user, linked_q):
+        raise HTTPException(status_code=404, detail="ไม่พบ checklist session")
+    if req.status not in ("received", "missing", "not_applicable"):
+        raise HTTPException(status_code=400, detail="status ต้องเป็น received, missing หรือ not_applicable")
     item = DocumentChecklistItem(
         id=gen_uuid(),
-        session_id=session_id,
+        form_assistance_session_id=session_id,
         document_name=req.document_name,
         status=req.status,
-        marked_by=req.marked_by,
+        marked_by=user.id,
     )
     db.add(item)
     db.commit()
@@ -199,7 +227,7 @@ def mark_checklist_item(session_id: str, req: ChecklistItemRequest, db: Session 
 
 
 @router.get("/articles")
-def list_articles(db: Session = Depends(get_db)):
+def list_articles(_: StaffUser = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     ดึงรายการตัวบทกฎหมายทั้งหมด (75 Chunks / 10 ประกาศอธิบดีฯ) สำหรับแสดงใน Citation Viewer
     """

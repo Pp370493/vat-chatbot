@@ -92,22 +92,9 @@ for name, mod in list(sys.modules.items()):
 
 
 def ingest():
-    from app.db.base import Base
-    from app.db.session import SessionLocal, engine
-    from app.models.models import KbArticle
-
-    Base.metadata.create_all(bind=engine)
-    items = json.load(open(BASE_DIR / "data" / "official_vat_articles.json", encoding="utf-8"))
-    db = SessionLocal()
-    db.query(KbArticle).delete()
-    t = time.perf_counter()
-    for it in items:
-        db.add(KbArticle(id=it["id"], title=it["title"], content=it["content"], source_section=it["source_section"],
-                         status="approved", source="official", chroma_vector_id=it["id"],
-                         embedding=_orig_embed(it["embedding_input"], is_query=False)))
-    db.commit()
-    db.close()
-    print(f"ingest {len(items)} chunks ด้วย {settings.embedding_model}: {time.perf_counter() - t:.1f}s", flush=True)
+    from app.core.kb_ingest import ingest_articles
+    print(f"embedding model: {settings.embedding_model}", flush=True)
+    ingest_articles(embed=_orig_embed)
 
 
 def pick_questions():

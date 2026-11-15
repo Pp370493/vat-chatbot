@@ -1,32 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MODE, backendUnavailable, demoJson, forward } from "../../../_lib/backend";
+
+export const dynamic = "force-dynamic";
 import fs from "fs";
 import path from "path";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    // If external backend is configured and reachable
-    const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
-    if (backendUrl) {
-      try {
-        const res = await fetch(`${backendUrl}/api/v1/chat/articles`, { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          return NextResponse.json(data);
-        }
-      } catch (e) {
-        console.warn("Backend proxy failed, falling back to local articles JSON:", e);
-      }
-    }
+    const fwd = await forward(req, "/api/v1/chat/articles");
+    if (fwd) return fwd;
+    if (!DEMO_MODE) return backendUnavailable();
 
     // Fallback: Read local bundled official articles JSON
     const jsonPath = path.join(process.cwd(), "data", "official_vat_articles.json");
     if (fs.existsSync(jsonPath)) {
       const raw = fs.readFileSync(jsonPath, "utf-8");
       const articles = JSON.parse(raw);
-      return NextResponse.json(articles);
+      return demoJson(articles);
     }
 
-    return NextResponse.json([]);
+    return demoJson([]);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

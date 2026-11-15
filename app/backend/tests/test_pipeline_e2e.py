@@ -93,3 +93,19 @@ def test_escalation_skips_llm_and_builds_brief(pipeline, monkeypatch):
     assert "ตัวแทนเชิด" in draft.draft_text and "(ฉบับที่ 57)" in draft.draft_text
     assert "ร่างคำตอบเบื้องต้น" in draft.draft_text
     assert any("ฉบับที่ 57" in c["source_section"] for c in draft.citations)
+
+
+def test_channel_not_inferred_from_previous_answer(pipeline, monkeypatch):
+    from app.agents import agent4_responder
+    real = agent4_responder.respond
+
+    def answer_mentions_office(q, chunks):
+        out = real(q, chunks)
+        out["answer_summary"] = "ยื่นได้ที่สำนักงานสรรพากรพื้นที่ภายใน 6 เดือน"
+        return out
+    monkeypatch.setattr(pipeline.a4, "respond", answer_mentions_office)
+    first = pipeline.run_pipeline("สร้างโรงงานยังไม่เสร็จ ขอจด VAT ล่วงหน้าได้ไหม", session_id="t10")
+    assert first["type"] == "answer"
+    res = pipeline.run_pipeline("จด vat ต้องเตรียมเอกสารอะไรไปยื่น", session_id="t10",
+                                conversation_id=first["conversation_id"])
+    assert res["type"] == "clarification"

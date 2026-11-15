@@ -3,14 +3,14 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Scale, ShieldCheck, UserCheck, ShieldAlert, KeyRound, Lock, ArrowRight } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-import { API_BASE_URL } from "../config";
+import { useAuth, homeFor } from "../context/AuthContext";
+import { apiFetch } from "../lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [selectedRole, setSelectedRole] = useState<"officer" | "senior_officer" | "admin">("officer");
-  const [password, setPassword] = useState("pass1234");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -54,9 +54,8 @@ export default function LoginPage() {
 
     const target = roleProfiles[selectedRole];
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      const res = await apiFetch("/api/v1/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: target.email,
           password: password,
@@ -64,7 +63,11 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        throw new Error("เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบรหัสผ่าน");
+        throw new Error(
+          res.status === 401
+            ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+            : "เชื่อมต่อระบบหลักไม่ได้ กรุณาตรวจว่าเปิด backend อยู่",
+        );
       }
 
       const data = await res.json();
@@ -76,14 +79,8 @@ export default function LoginPage() {
         session_token: data.session_token,
       });
 
-      // นำทางตามสิทธิ์ที่เหมาะสม
-      if (data.role === "officer") {
-        router.push("/chat");
-      } else if (data.role === "senior_officer") {
-        router.push("/review");
-      } else {
-        router.push("/dashboard");
-      }
+      // นำทางตามสิทธิ์ที่ backend ยืนยัน
+      router.push(homeFor(data.role));
     } catch (err: any) {
       setErrorMsg(err.message || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ Authentication ได้");
     } finally {
@@ -110,11 +107,10 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Quick Role Switcher for Thesis Demo */}
+        {/* เลือกบัญชี (เติมอีเมลให้) — ยังต้องใส่รหัสผ่านของบัญชีนั้น */}
         <div className="mb-6">
           <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
-            <span>เลือกบทบาทสำหรับทดสอบสาธิต (Demo Role):</span>
-            <span className="text-[11px] text-blue-400 font-normal">คลิกเลือกเพื่อสลับบทบาท</span>
+            <span>เลือกบัญชีที่จะเข้าใช้งาน:</span>
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -178,7 +174,7 @@ export default function LoginPage() {
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
               <KeyRound className="w-3.5 h-3.5 text-blue-400" />
-              <span>รหัสผ่านเข้าใช้งาน (Demo Default: pass1234)</span>
+              <span>รหัสผ่านเข้าใช้งาน</span>
             </label>
             <div className="relative">
               <input
@@ -209,7 +205,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-5 text-center text-[11px] text-slate-500">
-          🔒 บันทึกประวัติการเข้าใช้งานลง Immutable Audit Log ตามมาตรฐาน ISO/IEC 27001
+          🔒 ทุกการเข้าสู่ระบบถูกบันทึกลง audit log
         </div>
       </div>
     </div>

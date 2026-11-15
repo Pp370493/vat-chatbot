@@ -1,38 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MODE, backendUnavailable, demoJson, forward } from "../../../_lib/backend";
 import fs from "fs";
 import path from "path";
 
-// Standalone fallback classifier & responder for Vercel demo testing
+export const dynamic = "force-dynamic";
+
+// ส่งคำถามไป backend จริง; คำตอบสำรองแบบเดโมใช้เฉพาะเมื่อตั้ง DEMO_MODE=true
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const bodyText = await req.text();
+    const fwd = await forward(req, "/api/v1/chat/query", bodyText);
+    if (fwd) return fwd;
+    if (!DEMO_MODE) return backendUnavailable();
+
+    // โหมดเดโม (ไม่มี backend): ตัวจำแนกและคำตอบสำเร็จรูปแบบคำสำคัญ — คำตอบติดธง demo: true
+    const body = JSON.parse(bodyText || "{}");
     const rawText = (body.text || "").trim();
     const textLower = rawText.toLowerCase();
-
-    // 1. Check if external live backend is reachable
-    const backendUrl =
-      process.env.BACKEND_API_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : undefined);
-    if (backendUrl) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s — เท่ากับที่ backend รอ Ollama; บน CPU ตอบจริงใช้ราว 1.5–2 นาที
-        const res = await fetch(`${backendUrl}/api/v1/chat/query`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          return NextResponse.json(data);
-        }
-      } catch (err) {
-        console.warn("Backend proxy failed or timed out, using standalone Vercel engine:", err);
-      }
-    }
 
     // 2. Standalone Out-of-Scope Topics Router (สอดคล้องกับ Agent 1 & Agent 2 - ลำดับความสำคัญสูงสุด)
     const oosTopics = [
@@ -90,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     for (const t of oosTopics) {
       if (t.keywords.some((kw) => textLower.includes(kw))) {
-        return NextResponse.json({
+        return demoJson({
           query_id: `vercel-${Date.now()}`,
           conversation_id: body.conversation_id || `conv-${Date.now()}`,
           turn_number: 1,
@@ -129,7 +113,7 @@ export async function POST(req: NextRequest) {
     ].some((k) => textLower.includes(k));
 
     if (isGeneralFilingQuery && !hasSpecificVatReg) {
-      return NextResponse.json({
+      return demoJson({
         query_id: `vercel-${Date.now()}`,
         conversation_id: body.conversation_id || `conv-${Date.now()}`,
         turn_number: 1,
@@ -159,7 +143,7 @@ export async function POST(req: NextRequest) {
     ];
     const matchedRisks = riskKeywords.filter((kw) => textLower.includes(kw));
     if (matchedRisks.length > 0) {
-      return NextResponse.json({
+      return demoJson({
         query_id: `vercel-${Date.now()}`,
         conversation_id: body.conversation_id || `conv-${Date.now()}`,
         turn_number: 1,
@@ -179,7 +163,7 @@ export async function POST(req: NextRequest) {
 
     // 4. Standalone Form Assistance (Agent 7)
     if (["checklist", "เช็คลิสต์", "ตรวจเอกสาร", "ช่วยตรวจ", "ตรวจรับ"].some((kw) => textLower.includes(kw))) {
-      return NextResponse.json({
+      return demoJson({
         query_id: `vercel-${Date.now()}`,
         conversation_id: body.conversation_id || `conv-${Date.now()}`,
         turn_number: 1,
@@ -227,7 +211,7 @@ export async function POST(req: NextRequest) {
     ].some((k) => textLower.includes(k));
 
     if (!hasPaper && !hasInternet && !hasDbd && !isSelfContained && isGeneralVatRegistrationInquiry) {
-      return NextResponse.json({
+      return demoJson({
         query_id: `vercel-${Date.now()}`,
         conversation_id: body.conversation_id || `conv-${Date.now()}`,
         turn_number: 1,
@@ -340,7 +324,7 @@ export async function POST(req: NextRequest) {
         `• **ข้อปฏิบัติ:** ให้ผู้ประกอบการจัดเตรียมคำขอและเอกสารหลักฐานให้ครบถ้วนถูกต้องตามที่กฎหมายกำหนด`;
     }
 
-    return NextResponse.json({
+    return demoJson({
       query_id: `vercel-${Date.now()}`,
       conversation_id: body.conversation_id || `conv-${Date.now()}`,
       turn_number: 1,

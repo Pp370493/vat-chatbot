@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, ShieldCheck, BarChart3, Scale, LogOut, ChevronDown, UserCheck, ShieldAlert, FlaskConical } from "lucide-react";
+import { MessageSquare, ShieldCheck, BarChart3, Scale, LogOut, FlaskConical } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function Navbar() {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
-  const [isSwitchMenuOpen, setIsSwitchMenuOpen] = useState(false);
 
   // ถ้าอยู่หน้า Login ไม่ต้องแสดงแถบนำทาง
   if (pathname === "/login") {
@@ -39,13 +38,13 @@ export function Navbar() {
             <Scale className="w-6 h-6" />
           </Link>
           <div>
-            <h1 className="font-bold text-sm sm:text-base leading-tight text-slate-100 flex items-center gap-2">
+            <h1 className="font-bold text-sm sm:text-base leading-tight text-slate-100 flex items-center gap-2 whitespace-nowrap">
               Enterprise Tax Co-Pilot
-              <span className="text-[10px] sm:text-xs bg-blue-500/20 text-blue-400 font-medium px-2 py-0.5 rounded border border-blue-400/30">
+              <span className="hidden 2xl:inline text-[10px] sm:text-xs bg-blue-500/20 text-blue-400 font-medium px-2 py-0.5 rounded border border-blue-400/30">
                 VAT Registration
               </span>
             </h1>
-            <p className="text-[11px] sm:text-xs text-slate-400 hidden sm:block">
+            <p className="text-[11px] sm:text-xs text-slate-400 hidden 2xl:block">
               ระบบผู้ช่วยอัจฉริยะสำหรับเจ้าหน้าที่กรมสรรพากร (NIDA MADT IS)
             </p>
           </div>
@@ -56,7 +55,7 @@ export function Navbar() {
           {/* ถาม-ตอบข้อหารือ: เข้าได้ทุก Role */}
           <Link
             href="/chat"
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition ${
               pathname === "/chat"
                 ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
                 : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
@@ -70,7 +69,7 @@ export function Navbar() {
           {(role === "senior_officer" || role === "admin") && (
             <Link
               href="/review"
-              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition ${
                 pathname === "/review"
                   ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
                   : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
@@ -85,7 +84,7 @@ export function Navbar() {
           {role === "admin" && (
             <Link
               href="/dashboard"
-              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition ${
                 pathname === "/dashboard"
                   ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
                   : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
@@ -95,10 +94,11 @@ export function Navbar() {
               <span>แดชบอร์ดสถิติ</span>
             </Link>
           )}
-          {/* ชุดทดสอบ Benchmark: เข้าได้ทุก Role */}
+          {/* ชุดทดสอบ Benchmark: เฉพาะ admin (ยิงคำถามจำนวนมากเข้า LLM) */}
+          {role === "admin" && (
           <Link
             href="/test"
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition ${
               pathname === "/test"
                 ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
                 : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
@@ -107,83 +107,27 @@ export function Navbar() {
             <FlaskConical className="w-4 h-4 text-purple-400" />
             <span>ชุดทดสอบ Benchmark</span>
           </Link>
+          )}
         </nav>
 
-        {/* User Role Badge & Fast Switcher */}
+        {/* ผู้ใช้ที่เข้าสู่ระบบ + ออกจากระบบ (สลับบทบาท = ออกแล้วเข้าด้วยบัญชีอื่น) */}
         <div className="flex items-center space-x-2 sm:space-x-3">
           {user ? (
-            <div className="relative">
+            <div className="flex items-center gap-2">
+              <div className="text-right hidden md:block">
+                <div className="text-xs font-semibold text-slate-200">{user.full_name}</div>
+                <div className={`text-[10px] font-medium px-1.5 py-0.2 rounded border inline-block ${roleBadges[role]}`}>
+                  {roleNames[role]}
+                </div>
+              </div>
               <button
-                onClick={() => setIsSwitchMenuOpen(!isSwitchMenuOpen)}
-                className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700 transition text-left"
-                title="คลิกเพื่อสลับ Role (Demo Fast Switcher)"
+                onClick={() => logout()}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/20 border border-slate-700 text-xs text-slate-200 hover:text-rose-300 transition"
+                title="ออกจากระบบ"
               >
-                <div className="text-right hidden md:block">
-                  <div className="text-xs font-semibold text-slate-200">{user.full_name}</div>
-                  <div className={`text-[10px] font-medium px-1.5 py-0.2 rounded border inline-block ${roleBadges[role]}`}>
-                    {roleNames[role]}
-                  </div>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">ออกจากระบบ</span>
               </button>
-
-              {/* Dropdown Role Switcher */}
-              {isSwitchMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-xs">
-                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-700 font-semibold">
-                    สลับบทบาททดสอบ (Quick Switch):
-                  </div>
-                  <button
-                    onClick={() => {
-                      switchRole("officer");
-                      setIsSwitchMenuOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-700 transition ${
-                      role === "officer" ? "text-blue-400 font-bold bg-slate-700/40" : "text-slate-200"
-                    }`}
-                  >
-                    <span>เจ้าหน้าที่หน้างาน (Officer)</span>
-                    {role === "officer" && <span>✓</span>}
-                  </button>
-                  <button
-                    onClick={() => {
-                      switchRole("senior_officer");
-                      setIsSwitchMenuOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-700 transition ${
-                      role === "senior_officer" ? "text-amber-400 font-bold bg-slate-700/40" : "text-slate-200"
-                    }`}
-                  >
-                    <span>หัวหน้างาน (Supervisor)</span>
-                    {role === "senior_officer" && <span>✓</span>}
-                  </button>
-                  <button
-                    onClick={() => {
-                      switchRole("admin");
-                      setIsSwitchMenuOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-700 transition ${
-                      role === "admin" ? "text-emerald-400 font-bold bg-slate-700/40" : "text-slate-200"
-                    }`}
-                  >
-                    <span>ผู้ดูแลระบบ (Admin)</span>
-                    {role === "admin" && <span>✓</span>}
-                  </button>
-
-                  <div className="border-t border-slate-700 mt-1 pt-1">
-                    <button
-                      onClick={() => {
-                        logout();
-                        setIsSwitchMenuOpen(false);
-                      }}
-                      className="w-full px-3 py-2 text-left text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>ออกจากระบบ (Logout)</span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <Link

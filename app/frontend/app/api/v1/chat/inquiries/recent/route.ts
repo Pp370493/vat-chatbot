@@ -1,18 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { DEMO_MODE, backendUnavailable, demoJson, forward } from "../../../../_lib/backend";
 
-export async function GET() {
-  const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (backendUrl) {
-    try {
-      const res = await fetch(`${backendUrl}/api/v1/chat/inquiries/recent`, { cache: "no-store" });
-      if (res.ok) return NextResponse.json(await res.json());
-    } catch (e) {
-      // fallback
-    }
-  }
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
+  const fwd = await forward(req, "/api/v1/chat/inquiries/recent");
+  if (fwd) return fwd;
+  if (!DEMO_MODE) return backendUnavailable();
 
   // Standalone mock recent inquiries
-  return NextResponse.json([
+  return demoJson([
     {
       query_id: "demo-inq-1",
       conversation_id: "demo-conv-1",

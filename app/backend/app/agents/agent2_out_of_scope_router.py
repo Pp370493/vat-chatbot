@@ -3,15 +3,12 @@ Agent 2: Out-of-Scope Router (Final Scope — dual-check เสมอ)
 อ้างอิง: VAT_CoPilot_IS_Full_Handoff.md ส่วนที่ 4
 
 INPUT:  {"raw_text": str, "query_id": str}
-OUTPUT: {"matched_topic": str, "matched_via": "keyword"|"llm"|"both",
+OUTPUT: {"matched_topic": str, "matched_via": "keyword",
          "department_id": str|None, "redirect_message": str}
 
-Final Scope: ต้องเช็คด้วย keyword matching (ตาราง departments) และ LLM
-วิเคราะห์เชิงความหมายควบคู่กันทุกครั้ง ไม่ใช่ keyword-first/LLM-fallback
+จับคู่ด้วยหัวข้อในโค้ด (BUILTIN_OUT_OF_SCOPE_TOPICS) ก่อน แล้วจึงคำสำคัญในตาราง departments
+ไม่ตรงทั้งคู่ → แนะนำสายด่วน 1161 (เดิมเรียก LLM แต่ไม่ได้ใช้ผล จึงตัดออก)
 """
-from app.core.ollama_client import generate
-
-
 # คลังหัวข้อและคำแนะนำกรณี Out-of-Scope ที่พบบ่อย
 BUILTIN_OUT_OF_SCOPE_TOPICS = [
     {
@@ -121,22 +118,8 @@ def route(raw_text: str, departments: list[dict]) -> dict:
             "redirect_message": msg,
         }
 
-    kw_match = _keyword_match(raw_text, departments)
-
-    matched_via = "keyword"
-    dept = kw_match
-
-    # ถ้ายังไม่เจอกลุ่มงาน ให้พยายามค้นหาด้วย default หรือ LLM
-    if not dept:
-        try:
-            llm_result = generate(
-                prompt=f"คำถามนี้เกี่ยวกับหมวดใด: {raw_text}",
-                num_ctx=512,
-                mock_response='{"topic": "คืนภาษี"}',
-            )
-            matched_via = "llm"
-        except Exception:
-            pass
+    # ไม่เรียก LLM ที่นี่: ผลจาก LLM ไม่ได้ถูกใช้ และบน CPU เสียเวลา 20–50 วินาทีต่อคำถาม
+    dept = _keyword_match(raw_text, departments)
     contact_info = (dept.get("contact_channel") if dept and dept.get("contact_channel") else None) or "สายด่วน RD Intelligence Center โทร. 1161"
     matched_name = dept["name"] if dept else "หน่วยงานที่เกี่ยวข้อง"
 

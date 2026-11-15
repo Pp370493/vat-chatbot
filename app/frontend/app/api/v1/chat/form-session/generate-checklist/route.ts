@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MODE, backendUnavailable, demoJson, forward } from "../../../../_lib/backend";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
-    if (backendUrl) {
-      try {
-        const res = await fetch(`${backendUrl}/api/v1/chat/form-session/generate-checklist`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) return NextResponse.json(await res.json());
-      } catch (e) {
-        // fallback
-      }
-    }
+    const bodyText = await req.text();
+    const fwd = await forward(req, "/api/v1/chat/form-session/generate-checklist", bodyText);
+    if (fwd) return fwd;
+    if (!DEMO_MODE) return backendUnavailable();
+    const body = JSON.parse(bodyText || "{}");
 
     // Standalone Agent 7 Section 5 items generator for Vercel demo
     const { taxpayer_type, location_type, is_power_of_attorney, channel } = body;
@@ -126,7 +120,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    return demoJson({
       session_id: `fsess-${Date.now()}`,
       profile: body,
       checklist_items: items,

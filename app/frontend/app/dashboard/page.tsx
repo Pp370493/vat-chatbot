@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import { Lock, ArrowLeft, Shield } from "lucide-react";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../lib/api";
 
 interface OverviewStats {
   total_queries: number;
@@ -56,9 +56,9 @@ export default function DashboardPage() {
     setIsLoading(true);
     try {
       const [resOverview, resHeatmap, resLogs] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/v1/analytics/overview`),
-        fetch(`${API_BASE_URL}/api/v1/analytics/heatmap`),
-        fetch(`${API_BASE_URL}/api/v1/analytics/audit-logs?limit=15`),
+        apiFetch(`/api/v1/analytics/overview`),
+        apiFetch(`/api/v1/analytics/heatmap`),
+        apiFetch(`/api/v1/analytics/audit-logs?limit=15`),
       ]);
 
       if (resOverview.ok) {
@@ -300,15 +300,15 @@ export default function DashboardPage() {
           <div className="bg-slate-800/80 p-3.5 rounded-lg border border-slate-700">
             <div className="text-slate-400 mb-1">เอกสารกฎหมายทางการ</div>
             <div className="font-semibold text-slate-200">
-              ประกาศอธิบดีกรมสรรพากร (ฉบับที่ 57)
+              ประกาศฉบับที่ 57 / 159 (+234 กรณี DBD)
             </div>
-            <div className="text-[11px] text-emerald-400 mt-1">10 Chunks Indexed</div>
+            <div className="text-[11px] text-emerald-400 mt-1">ตัวบท 75 chunks จาก 10 ประกาศ · ค้นเฉพาะตัวบทหลัก</div>
           </div>
 
           <div className="bg-slate-800/80 p-3.5 rounded-lg border border-slate-700">
             <div className="text-slate-400 mb-1">ความคงที่ของคำตอบ (Consistency)</div>
-            <div className="font-semibold text-slate-200">Deterministic Guaranteed</div>
-            <div className="text-[11px] text-blue-400 mt-1">Resolved Query Temperature = 0.0</div>
+            <div className="font-semibold text-slate-200">ตรวจคำตอบก่อนตอบอัตโนมัติ</div>
+            <div className="text-[11px] text-blue-400 mt-1">Agent 5 ตรวจการอ้างข้อ · ความเสี่ยงตามข้อ 6 ส่งหัวหน้างาน</div>
           </div>
 
           <div className="bg-slate-800/80 p-3.5 rounded-lg border border-slate-700">
@@ -327,10 +327,10 @@ export default function DashboardPage() {
           <div>
             <h3 className="text-sm font-bold flex items-center gap-2 text-slate-800">
               <Shield className="w-4 h-4 text-emerald-600" />
-              บันทึกการตรวจสอบย้อนหลังที่แก้ไขไม่ได้ (Immutable Audit Log - ISO/IEC 27001)
+              บันทึกการตรวจสอบย้อนหลัง (Audit Log)
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              บันทึกทุก Action ในระบบ ไม่สามารถแก้ไขหรือลบได้ (Append-Only Trigger Lock) และตัดข้อมูล PII ออก
+              บันทึกการเข้าสู่ระบบ การส่งเคสเข้าคิว และการตัดสินของหัวหน้างาน · คำถามถูกตัดเลขบัตรประชาชนและเบอร์โทรก่อนบันทึก
             </p>
           </div>
           <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold flex items-center gap-1">

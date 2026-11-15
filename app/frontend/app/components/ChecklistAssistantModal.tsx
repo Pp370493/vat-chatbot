@@ -16,7 +16,7 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../lib/api";
 
 interface ChecklistItem {
   id: string;
@@ -60,7 +60,7 @@ export default function ChecklistAssistantModal({
     setIsGenerating(true);
     setEvaluationResult(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/chat/form-session/generate-checklist`, {
+      const res = await apiFetch(`/api/v1/chat/form-session/generate-checklist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -129,7 +129,7 @@ export default function ChecklistAssistantModal({
         location_type: locationType,
         is_power_of_attorney: isPowerOfAttorney,
       };
-      const res = await fetch(`${API_BASE_URL}/api/v1/chat/form-session/evaluate-checklist`, {
+      const res = await apiFetch(`/api/v1/chat/form-session/evaluate-checklist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

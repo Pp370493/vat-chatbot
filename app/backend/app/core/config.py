@@ -25,6 +25,10 @@ class Settings(BaseSettings):
 
     # Auth
     auth_session_expiry_hours: int = 8
+    # สลับบทบาทโดยไม่ใส่รหัส ใช้ได้เฉพาะตอนสาธิต — ปิดไว้เสมอบนเครื่องที่ใช้งานจริง
+    enable_demo_role_switch: bool = False
+    # origin ของหน้าเว็บที่เรียก API ได้ (คั่นด้วยจุลภาค)
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # Risk thresholds (Agent 6)
     risk_threshold_officer: float = 0.6

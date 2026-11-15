@@ -2,31 +2,42 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { API_BASE_URL } from "../config";
+import { apiFetch, SESSION_KEY } from "../lib/api";
+
+export type Role = "officer" | "senior_officer" | "admin";
 
 export interface UserProfile {
   user_id: string;
   full_name: string;
   email: string;
-  role: "officer" | "senior_officer" | "admin";
+  role: Role;
   session_token: string;
 }
 
 interface AuthContextType {
   user: UserProfile | null;
   login: (profile: UserProfile) => void;
-  logout: () => void;
-  switchRole: (role: "officer" | "senior_officer" | "admin") => Promise<void>;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: () => {},
-  logout: () => {},
-  switchRole: async () => {},
+  logout: async () => {},
   isLoading: true,
 });
+
+// หน้าที่แต่ละบทบาทเข้าได้ (backend ตรวจสิทธิ์ซ้ำทุกคำขอ — ฝั่งเว็บแค่พาไปหน้าที่ถูก)
+const PAGE_ROLES: Record<string, Role[]> = {
+  "/review": ["senior_officer", "admin"],
+  "/dashboard": ["admin"],
+  "/test": ["admin"],
+};
+
+export function homeFor(role: Role): string {
+  return role === "senior_officer" ? "/review" : role === "admin" ? "/dashboard" : "/chat";
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -35,55 +46,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // โหลด session จาก localStorage เมื่อเริ่มต้น
-    const saved = localStorage.getItem("tax_copilot_user");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setUser(parsed);
-      } catch (e) {
-        console.error("Failed to parse saved user", e);
-      }
+    // โหลด session จาก localStorage แล้วยืนยันกับ backend ว่ายังใช้ได้และบทบาทถูกต้อง
+    const saved = localStorage.getItem(SESSION_KEY);
+    if (!saved) {
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+    let parsed: UserProfile | null = null;
+    try {
+      parsed = JSON.parse(saved);
+    } catch {
+      localStorage.removeItem(SESSION_KEY);
+    }
+    if (!parsed) {
+      setIsLoading(false);
+      return;
+    }
+    apiFetch("/api/v1/auth/me")
+      .then(async (res) => {
+        if (res.ok) {
+          const me = await res.json();
+          const verified = { ...parsed!, role: me.role, full_name: me.full_name, email: me.email };
+          setUser(verified);
+          localStorage.setItem(SESSION_KEY, JSON.stringify(verified));
+        } else {
+          localStorage.removeItem(SESSION_KEY);
+        }
+      })
+      .catch(() => setUser(parsed)) // backend ไม่ตอบ: ใช้ข้อมูลเดิมไปก่อน คำขอถัดไปจะถูกตรวจอีกครั้ง
+      .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      if (pathname !== "/login") router.replace("/login");
+      return;
+    }
+    const allowed = PAGE_ROLES[pathname];
+    if (allowed && !allowed.includes(user.role)) router.replace(homeFor(user.role));
+  }, [isLoading, user, pathname, router]);
 
   const login = (profile: UserProfile) => {
     setUser(profile);
-    localStorage.setItem("tax_copilot_user", JSON.stringify(profile));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiFetch("/api/v1/auth/logout", { method: "POST" });
+    } catch {
+      // ออกจากระบบฝั่งเว็บต่อแม้ backend ไม่ตอบ
+    }
     setUser(null);
-    localStorage.removeItem("tax_copilot_user");
+    localStorage.removeItem(SESSION_KEY);
     router.push("/login");
   };
 
-  const switchRole = async (targetRole: "officer" | "senior_officer" | "admin") => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/auth/quick-switch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: targetRole }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const updated: UserProfile = {
-          user_id: data.user_id,
-          full_name: data.full_name,
-          email: data.email,
-          role: data.role,
-          session_token: data.session_token,
-        };
-        login(updated);
-      }
-    } catch (e) {
-      console.error("Quick switch failed", e);
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, switchRole, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

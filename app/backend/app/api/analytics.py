@@ -2,23 +2,40 @@
 API 5.3 Admin Dashboard Analytics — อ้างอิง VAT_CoPilot_IS_Full_Handoff.md
 คำนวณและสรุปสถิติจริงจากฐานข้อมูล SQLite (queries, escalations, out_of_scope_routes)
 """
-from fastapi import APIRouter, Depends
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from app.core.security import require_roles
 from app.db.session import get_db
-from app.models.models import Query, Escalation, OutOfScopeRoute, RiskAssessment
+from app.models.models import Query, Escalation, OutOfScopeRoute, RiskAssessment, StaffUser
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
+admin_only = require_roles("admin")
+RANGE_DAYS = {"7d": 7, "30d": 30, "90d": 90, "all": None}
+
+
+def _since(range_: str) -> datetime | None:
+    if range_ not in RANGE_DAYS:
+        raise HTTPException(status_code=400, detail="range ต้องเป็น 7d, 30d, 90d หรือ all")
+    days = RANGE_DAYS[range_]
+    return datetime.utcnow() - timedelta(days=days) if days else None
 
 
 @router.get("/overview")
-def overview(range: str = "7d", db: Session = Depends(get_db)):
+def overview(range: str = "7d", _: StaffUser = Depends(admin_only), db: Session = Depends(get_db)):
     """
-    ภาพรวมสถิติการใช้งานระบบ
+    ภาพรวมสถิติการใช้งานระบบในช่วงเวลาที่เลือก (7d / 30d / 90d / all)
     """
-    total = db.query(Query).count()
+    since = _since(range)
+    queries = db.query(Query)
+    if since:
+        queries = queries.filter(Query.created_at >= since)
+    total = queries.count()
     if total == 0:
         return {
+            "range": range,
             "total_queries": 0,
             "in_scope_ratio": 1.0,
             "out_of_scope_breakdown": [],
@@ -27,41 +44,40 @@ def overview(range: str = "7d", db: Session = Depends(get_db)):
             "top_repeated_questions": [],
         }
 
-    in_scope_count = db.query(Query).filter(Query.in_scope == True).count()
-    escalation_count = db.query(Escalation).count()
-    auto_count = db.query(Query).filter(Query.status == "answered").count() - db.query(Escalation).filter(Escalation.decision.isnot(None)).count()
-    auto_count = max(0, auto_count)
+    query_ids = queries.with_entities(Query.id).subquery()
+    in_scope_count = queries.filter(Query.in_scope == True).count()  # noqa: E712
+    escalation_count = db.query(Escalation).filter(Escalation.query_id.in_(query_ids)).count()
+    reviewed_count = (db.query(Escalation)
+                      .filter(Escalation.query_id.in_(query_ids), Escalation.decision.isnot(None)).count())
+    auto_count = max(0, queries.filter(Query.status == "answered").count() - reviewed_count)
 
-    # Out of scope breakdown
     oos_rows = (
         db.query(OutOfScopeRoute.matched_topic, func.count(OutOfScopeRoute.id))
+        .filter(OutOfScopeRoute.query_id.in_(query_ids))
         .group_by(OutOfScopeRoute.matched_topic)
         .all()
     )
-    oos_breakdown = [{"topic": r[0], "count": r[1]} for r in oos_rows]
-
-    # Top repeated questions
     top_queries = (
-        db.query(Query.raw_text, func.count(Query.id))
+        queries.with_entities(Query.raw_text, func.count(Query.id))
         .group_by(Query.raw_text)
         .order_by(func.count(Query.id).desc())
         .limit(5)
         .all()
     )
-    top_repeated = [{"text": r[0], "count": r[1]} for r in top_queries]
 
     return {
+        "range": range,
         "total_queries": total,
         "in_scope_ratio": round(in_scope_count / total, 3),
-        "out_of_scope_breakdown": oos_breakdown,
+        "out_of_scope_breakdown": [{"topic": r[0], "count": r[1]} for r in oos_rows],
         "escalation_rate": round(escalation_count / total, 3),
         "auto_answer_rate": round(auto_count / total, 3),
-        "top_repeated_questions": top_repeated,
+        "top_repeated_questions": [{"text": r[0], "count": r[1]} for r in top_queries],
     }
 
 
 @router.get("/heatmap")
-def heatmap(db: Session = Depends(get_db)):
+def heatmap(_: StaffUser = Depends(admin_only), db: Session = Depends(get_db)):
     """
     หัวข้อที่ถูกส่งเข้าคิว Escalation บ่อยที่สุด
     """
@@ -74,11 +90,12 @@ def heatmap(db: Session = Depends(get_db)):
 
 
 @router.get("/audit-logs")
-def get_audit_logs(limit: int = 50, db: Session = Depends(get_db)):
+def get_audit_logs(limit: int = 50, _: StaffUser = Depends(admin_only), db: Session = Depends(get_db)):
     """
     ดึงบันทึก Audit Logs ที่แก้ไขไม่ได้ (Immutable Log Viewer) สำหรับ Admin ตรวจสอบตาม ISO/IEC 27001
     """
-    from app.models.models import AuditLog, StaffUser
+    from app.models.models import AuditLog
+    limit = max(1, min(limit, 500))
     logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
     results = []
     for log in logs:

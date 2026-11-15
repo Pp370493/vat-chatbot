@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MODE, backendUnavailable, demoJson, forward } from "../../../../_lib/backend";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
-    if (backendUrl) {
-      try {
-        const res = await fetch(`${backendUrl}/api/v1/chat/form-session/evaluate-checklist`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) return NextResponse.json(await res.json());
-      } catch (e) {
-        // fallback
-      }
-    }
+    const bodyText = await req.text();
+    const fwd = await forward(req, "/api/v1/chat/form-session/evaluate-checklist", bodyText);
+    if (fwd) return fwd;
+    if (!DEMO_MODE) return backendUnavailable();
+    const body = JSON.parse(bodyText || "{}");
 
     const { items = [] } = body;
     const completed = items.filter((x: any) => x.checked);
@@ -36,7 +30,7 @@ export async function POST(req: NextRequest) {
         "\n\n*หมายเหตุ:* หากเอกสารไม่ครบถ้วน เจ้าพนักงานอาจไม่ออกใบทะเบียนตามเกณฑ์ข้อ 6";
     }
 
-    return NextResponse.json({
+    return demoJson({
       is_ready_to_submit: isReady,
       summary_text: summaryText,
       total_items: items.length,

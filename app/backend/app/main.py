@@ -1,10 +1,11 @@
 """
 FastAPI entrypoint — อ้างอิง VAT_CoPilot_IS_Full_Handoff.md ส่วนที่ 5, 7
 
-รัน: uvicorn app.main:app --reload
+รัน: uvicorn app.main:app --host 127.0.0.1 --port 8000   (ตอนพัฒนาเพิ่ม --reload ได้)
 เช็ค: http://localhost:8000/health และ http://localhost:8000/docs
 """
 from fastapi import FastAPI
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
 from app.models import models  # noqa: F401  (import เพื่อให้ Base รู้จักทุก table)
@@ -16,13 +17,7 @@ app = FastAPI(title="Enterprise Tax Co-Pilot & Intelligence Platform")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

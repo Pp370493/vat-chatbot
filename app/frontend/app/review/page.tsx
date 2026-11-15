@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import { Lock, ArrowLeft } from "lucide-react";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../lib/api";
 
 interface EscalationItem {
   escalation_id: string;
@@ -34,6 +34,15 @@ interface EscalationItem {
   created_at: string;
 }
 
+// สรุปเคสจาก backend เป็น markdown — แสดงแบบข้อความธรรมดาที่อ่านง่าย
+const plain = (text: string) => (text || "").replace(/\*\*/g, "");
+// ตั้งต้นคำตอบสุดท้ายด้วย "ร่างคำตอบเบื้องต้น" ในสรุปเคส (ถ้ามี) ไม่ใช่ทั้งสรุป
+const initialAnswer = (draft: string) => {
+  const marker = "ร่างคำตอบเบื้องต้น:";
+  const at = (draft || "").indexOf(marker);
+  return at >= 0 ? plain(draft.slice(at + marker.length)).replace(/^\*+/, "").trim() : plain(draft);
+};
+
 export default function ReviewPage() {
   const { user } = useAuth();
   const [escalations, setEscalations] = useState<EscalationItem[]>([]);
@@ -49,13 +58,13 @@ export default function ReviewPage() {
   const fetchEscalations = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/escalations?status=${statusFilter}`);
+      const res = await apiFetch(`/api/v1/escalations?status=${statusFilter}`);
       if (res.ok) {
         const data = await res.json();
         setEscalations(data);
         if (data.length > 0) {
           setSelectedCase(data[0]);
-          setEditedAnswer(data[0].final_answer || data[0].draft_text);
+          setEditedAnswer(data[0].final_answer || initialAnswer(data[0].draft_text));
         } else {
           setSelectedCase(null);
         }
@@ -75,18 +84,11 @@ export default function ReviewPage() {
     if (!selectedCase) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/escalations/${selectedCase.escalation_id}/decision`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            decision: decision,
-            final_answer: editedAnswer,
-            reviewed_by: "หัวหน้างาน (Supervisor-01)",
-          }),
-        }
-      );
+      // ผู้ตรวจ = ผู้ใช้ที่เข้าสู่ระบบ (backend อ่านจาก token)
+      const res = await apiFetch(`/api/v1/escalations/${selectedCase.escalation_id}/decision`, {
+        method: "POST",
+        body: JSON.stringify({ decision: decision, final_answer: editedAnswer }),
+      });
 
       if (res.ok) {
         alert(`บันทึกผลการตรวจสอบ (${decision}) เรียบร้อยแล้วค่ะ`);
@@ -202,7 +204,7 @@ export default function ReviewPage() {
                   key={item.escalation_id}
                   onClick={() => {
                     setSelectedCase(item);
-                    setEditedAnswer(item.final_answer || item.draft_text);
+                    setEditedAnswer(item.final_answer || initialAnswer(item.draft_text));
                   }}
                   className={`p-4 cursor-pointer transition text-left ${
                     selectedCase?.escalation_id === item.escalation_id
@@ -292,8 +294,8 @@ export default function ReviewPage() {
                     อ้างอิง: {selectedCase.citations.map((c) => c.source_section).join(", ")}
                   </span>
                 </div>
-                <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-lg text-xs text-slate-700 leading-relaxed max-h-36 overflow-y-auto">
-                  {selectedCase.draft_text}
+                <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-lg text-xs text-slate-700 leading-relaxed max-h-72 overflow-y-auto whitespace-pre-wrap">
+                  {plain(selectedCase.draft_text)}
                 </div>
               </div>
 

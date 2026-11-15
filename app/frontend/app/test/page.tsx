@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../lib/api";
 
 interface BenchmarkQuestion {
   id: number;
@@ -487,7 +487,7 @@ export default function BenchmarkTestPage() {
 
     const startTime = performance.now();
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/chat/query`, {
+      const res = await apiFetch(`/api/v1/chat/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
