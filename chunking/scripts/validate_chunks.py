@@ -290,8 +290,13 @@ def chunk_topics(graph: dict) -> dict[str, set]:
 def check_keywords(all_chunks: dict, dictionary: dict, graph: dict, rep: Report):
     topics = chunk_topics(graph)
     no_topic = sorted(set(all_chunks) - set(topics))
+    boiler = [c for c in no_topic if all_chunks[c].get("metadata", {}).get("is_boilerplate")]
+    no_topic = [c for c in no_topic if c not in boiler]
     if no_topic:
         rep.add("WARN", "graph", "chunk ที่ไม่ได้ผูกกับ topic ใดใน graph", chunk_ids=no_topic)
+    if boiler:
+        rep.add("INFO", "graph", f"chunk ท้ายประกาศ (is_boilerplate) {len(boiler)} ชิ้นไม่ผูก topic — ไม่อยู่ในดัชนีค้นหาอยู่แล้ว",
+                chunk_ids=boiler)
 
     kw_topics = defaultdict(set)
     kw_chunks = defaultdict(set)
@@ -316,9 +321,9 @@ def check_keywords(all_chunks: dict, dictionary: dict, graph: dict, rep: Report)
         rep.add("WARN", "keywords",
                 f"{len(self_numbered)} chunk ของฉบับแก้ไขใช้เลขข้อของตัวเองเป็น keyword "
                 f"→ ผู้ใช้ถาม 'ข้อ N' (หมายถึงฉบับแม่บท) จะดึงผิดข้อ", chunks=self_numbered)
-    rep.add("WARN", "keywords",
+    rep.add("INFO", "keywords",
             f"keyword แบบ 'ข้อ N' มี {len(generic)} แบบ ใน {sum(map(len, generic.values()))} chunks "
-            f"→ ไม่ระบุฉบับ และ substring match ข้ามเลข ('ข้อ 1' เจอใน 'ข้อ 10')",
+            f"(agents/agent3 ใช้ kw_in() ซึ่งไม่ให้ 'ข้อ 1' ไปเจอใน 'ข้อ 10' หรือ 'ข้อ 5' เจอใน 'ข้อ 5/1')",
             detail={k: len(v) for k, v in sorted(generic.items())})
     if short:
         rep.add("WARN", "keywords", f"keyword สั้น (<= {SHORT_KW_LEN} ตัวอักษร) {len(short)} คำ "

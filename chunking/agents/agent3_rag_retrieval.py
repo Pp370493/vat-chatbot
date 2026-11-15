@@ -48,6 +48,16 @@ REFERENCE_SNIPPETS = {
 }
 
 
+
+def kw_in(kw: str, text: str) -> bool:
+    """keyword อยู่ใน text ไหม — keyword ที่ลงท้ายด้วยเลข (เช่น "ข้อ 1") ต้องไม่มีเลขหรือ / ต่อท้าย
+    ไม่งั้น "ข้อ 1" จะไปเจอใน "ข้อ 10" และ "ข้อ 5" เจอใน "ข้อ 5/1"
+    """
+    kw = kw.lower()
+    if not kw or not kw[-1].isdigit():
+        return kw in text
+    return re.search(re.escape(kw) + r"(?![\d/])", text) is not None
+
 class RAGRetrievalAgent:
     def __init__(self, base_dir: str = None, mode: str = "primary"):
         if mode not in ("primary", "all"):
@@ -274,11 +284,11 @@ class RAGRetrievalAgent:
         # ตรวจสอบ Boost Keywords ใน Metadata ของ Chunk
         metadata = chunk.get("metadata", {})
         for kw in metadata.get("boost_keywords", []):
-            if kw.lower() in query:
+            if kw_in(kw, query):
                 score += 0.15
 
         for tf_kw in metadata.get("tfidf_keywords", []):
-            if tf_kw.lower() in query:
+            if kw_in(tf_kw, query):
                 score += 0.10
 
         return min(score, 1.0)
@@ -294,12 +304,12 @@ class RAGRetrievalAgent:
 
             match = False
             for kw in kws:
-                if kw.lower() in query:
+                if kw_in(kw, query):
                     match = True
                     break
             if not match:
                 for trig in triggers:
-                    if trig.lower() in query:
+                    if kw_in(trig, query):
                         match = True
                         break
 
