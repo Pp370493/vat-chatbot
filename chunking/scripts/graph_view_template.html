@@ -87,6 +87,24 @@ details summary{cursor:pointer;font-size:13px;color:var(--navy)}
 .sect{margin-top:14px}
 .sect h4{font-size:12px;letter-spacing:.05em;color:var(--muted);margin:0 0 6px;font-weight:600}
 
+/* ชั้น 4: โครงสร้างข้อ */
+.tree{margin:6px 0 0}
+.hn{border-left:2px solid var(--line);padding:6px 0 6px 12px;margin:0}
+.hn.lv-article,.hn.lv-content{border-left:0;padding-left:0}
+.hn .row{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.hn .k{font-weight:600;font-family:var(--f-law);font-size:15px;white-space:nowrap}
+.hn .s{font-family:var(--f-law);font-size:14px;color:var(--ink)}
+.hn.old>.row .s{color:var(--muted);text-decoration:line-through}
+.hn .rel{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.chip{font:inherit;font-size:11.5px;border-radius:999px;padding:1px 8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.chip.ref{border-color:var(--teal);color:var(--teal)} .chip.by{border-color:var(--navy);color:var(--navy)}
+.chip.am{border-color:var(--amber);color:var(--amber)} .chip.ext{cursor:default;color:var(--muted)}
+.hn details{margin-top:4px} .hn details summary{font-size:12px}
+.hn .t{font-family:var(--f-law);font-size:14px;line-height:1.7;background:var(--bg);border-radius:6px;padding:8px 10px;margin-top:4px;white-space:pre-wrap}
+.hk{margin-left:6px}
+.flash{animation:flash 2.4s ease-out 1}
+@keyframes flash{0%{background:color-mix(in srgb,var(--sel) 45%,transparent)}100%{background:transparent}}
+
 /* ประเด็นที่ต้องตรวจ */
 .chk{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:none;border:0;border-left:3px solid var(--amber);padding:6px 10px;margin:0 0 10px;cursor:pointer;border-radius:0 6px 6px 0}
 .chk.error{border-left-color:var(--red)}
@@ -206,7 +224,11 @@ function renderL3(){
     <div class="tags"><span class="tag ${a.role === "primary" ? "p" : a.role === "special" ? "d" : "i"}">${roleTxt}</span>
     <span class="tag ${a.current ? "ok" : "old"}">${a.current ? "ยังมีผล" : "ถูกฉบับ " + esc(a.superseded_by.join(", ")) + " แทนที่แล้ว"}</span>
     ${a.year ? `<span class="tag">มีผล พ.ศ. ${a.year}</span>` : ""}${a.change ? `<span class="tag">${esc(a.change)}</span>` : ""}</div>
-    <p class="meta">${esc(a.ref)}</p><div class="law">${esc(a.text)}${a.text.length >= 900 ? " …" : ""}</div>`;
+    <p class="meta">${esc(a.ref)}</p>`;
+  if (a.hnode && D.H[a.hnode]) h += `<div class="sect"><h4>โครงสร้างข้อ (ข้อ → วรรค → อนุ → ย่อย) และการอ้างอิง</h4>
+    <p class="meta">เส้นสีเขียว = ข้อความนี้อ้างถึง · สีน้ำเงิน = ถูกอ้างโดย · สีส้ม = การแก้ไข · คลิกเพื่อไปที่ข้อนั้น</p>
+    <div class="tree">${treeHtml(a.hnode)}</div></div>`;
+  else h += `<div class="law">${esc(a.text)}</div>`;
   if (parent.length) h += `<div class="sect"><h4>ข้อที่ฉบับนี้ไปแก้ในตัวบทหลัก</h4><div class="hist">${parent.map(p => `<div class="hrow"><span class="y">ฉบับ ${p.ann} ${artLabel(p)}</span><button data-art="${p.id}">${esc(p.summary)}</button></div>`).join("")}</div></div>`;
   const chain = a.chain.filter(x => !A[x].boiler);
   if (chain.length) h += `<div class="sect"><h4>ประวัติการแก้ไขข้อนี้ (เก่า → ใหม่)</h4><div class="hist">${chain.map(x => `<div class="hrow"><span class="y">${A[x].year} · ฉบับ ${A[x].ann}</span><button data-art="${x}">${esc(A[x].summary)}${A[x].current ? "" : " (ถูกแทนที่แล้ว)"}</button></div>`).join("")}</div></div>`;
@@ -216,7 +238,51 @@ function renderL3(){
   $("main").innerHTML = h + "</div>";
 }
 
+// ---------- ชั้น 4: ต้นไม้โครงสร้างข้อ
+const PARA_TH = {1:"วรรคหนึ่ง",2:"วรรคสอง",3:"วรรคสาม",4:"วรรคสี่",5:"วรรคห้า"};
+const domId = id => "h-" + encodeURIComponent(id).replace(/%/g, "_");
+const hName = id => { const n = D.H[id]; return n ? n.label : id; };
+function hKey(n, id){
+  if (n.level === "clause" || n.level === "item") return `(${n.key})`;
+  if (n.level === "paragraph") { const m = id.match(/\/p(\d+)$/); return m ? (PARA_TH[m[1]] || "วรรค " + m[1]) : "วรรค"; }
+  if (n.level === "note") return "หมายเหตุ";
+  return n.label;
+}
+function chipFor(id, cls){
+  const n = D.H[id]; if (!n) return "";
+  if (n.level === "external") return `<span class="chip ext">${esc(n.label)}</span>`;
+  return `<button class="chip ${cls}" data-h="${esc(id)}">${esc(n.label)}</button>`;
+}
+function treeHtml(id){
+  const n = D.H[id]; if (!n) return "";
+  const outs = n.out.map(([ph, t]) => [ph, t]);
+  const groups = {}; outs.forEach(([ph, t]) => { (groups[ph] = groups[ph] || []).push(t); });
+  const rel = [
+    ...Object.entries(groups).map(([ph, ts]) => `<span class="meta">อ้างถึง “${esc(ph)}”:</span>${ts.map(t => chipFor(t, "ref")).join("")}`),
+    n.in.length ? `<span class="meta">ถูกอ้างโดย:</span>${[...new Set(n.in)].map(t => chipFor(t, "by")).join("")}` : "",
+    n.amends.length ? `<span class="meta">แก้ที่:</span>${n.amends.map(t => chipFor(t, "am")).join("")}` : "",
+    n.amended_by.length ? `<span class="meta">แก้โดย:</span>${n.amended_by.map(t => chipFor(t, "am")).join("")}` : "",
+  ].filter(Boolean).join(" ");
+  const showText = n.text && (n.level !== "article" || n.kids.length === 0);
+  const head = (n.level === "article" || n.level === "content")
+    ? `<div class="row"><span class="k">${esc(n.label)}</span></div>${n.text ? `<div class="t">${esc(n.text)}</div>` : ""}`
+    : `<div class="row"><span class="k">${esc(hKey(n, id))}</span><span class="s">${esc(n.short)}</span></div>
+       ${showText ? `<details><summary>ข้อความเต็ม</summary><div class="t">${esc(n.text)}</div></details>` : ""}`;
+  return `<div class="hn lv-${n.level}${n.current === false ? " old" : ""}" id="${domId(id)}">${head}
+    ${rel ? `<div class="rel">${rel}</div>` : ""}
+    ${n.kids.length ? `<div class="hk">${n.kids.map(treeHtml).join("")}</div>` : ""}</div>`;
+}
+function goH(id){
+  const n = D.H[id]; if (!n || !n.chunk || !A[n.chunk]) return;
+  if (!(state.level === 3 && A[state.art] && A[state.art].hnode === A[n.chunk].hnode)) go({level:3, art:n.chunk, topic: state.topic || A[n.chunk].topics[0] || null});
+  setTimeout(() => { const el = document.getElementById(domId(id)); if (!el) return;
+    el.querySelectorAll(":scope > details").forEach(d => d.open = true);
+    el.scrollIntoView({block:"center", behavior:"smooth"}); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }, 120);
+}
+
 $("main").addEventListener("click", e => {
+  const hb = e.target.closest("[data-h]");
+  if (hb) { goH(hb.dataset.h); return; }
   const t = e.target.closest("[data-topic]"), a = e.target.closest("[data-art]");
   if (a) go({level:3, art:a.dataset.art, topic: state.topic || A[a.dataset.art].topics[0] || null});
   else if (t) go({level:2, topic:t.dataset.topic});

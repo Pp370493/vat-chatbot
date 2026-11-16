@@ -23,6 +23,7 @@ from collections import defaultdict
 from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_hierarchy as bh  # noqa: E402
 import eval_retrieval as er  # noqa: E402
 
 ROOT = er.ROOT
@@ -101,6 +102,51 @@ def summarize(cid: str, c: dict) -> tuple[str, str]:
         return "วันใช้บังคับและผู้ลงนาม", change
     par = re.findall(r"\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$", tail)
     return (par[0] if par else tail).strip(), change
+
+
+def short_label(text: str, width: int = 90) -> str:
+    """ข้อความต้นของ node (ไม่เขียนสรุปเอง): ตัดที่คำเชื่อมแรก เช่น 'ให้แนบ' หรือที่ความยาวพอเหมาะ"""
+    t = " ".join((text or "").split())
+    t = re.sub(r"^[“\"]?\s*(ข้อ\s*\S+?\s+)?(\([0-9๐-๙]+\)\s*)?(\([ก-ฮ]\)\s*)?", "", t)
+    for sep in (" ให้แนบ", " ให้ยื่น", " ต้องมี", " ต้อง", " ได้แก่", " ให้", ","):
+        k = t.find(sep)
+        if 15 <= k <= width:
+            return t[:k]
+    if len(t) <= width:
+        return t
+    cut = t.rfind(" ", 0, width)
+    return t[:cut if cut > 30 else width] + " …"
+
+
+def hierarchy_data(chunks_list: list[dict]) -> tuple[dict, dict]:
+    """node ลำดับชั้น + ความสัมพันธ์ สำหรับหน้าแสดงผล และ chunk_id -> node ระดับข้อ"""
+    st, _ = bh.build(chunks_list)
+    bh.resolve_refs(st)
+    H = {}
+    for nid in st.order:
+        n = st.nodes[nid]
+        H[nid] = {"label": n["label"], "level": n["level"], "text": (n.get("own_text") or "").strip(),
+                  "short": short_label(n.get("own_text") or ""), "kids": [], "out": [], "in": [],
+                  "amends": [], "amended_by": [], "chunk": (n.get("chunk_ids") or [None])[0],
+                  "current": n.get("current", True), "key": n.get("key", "")}
+    for e in st.edges:
+        if e["s"] not in H or e["t"] not in H:
+            continue
+        if e["kind"] == "contains":
+            H[e["s"]]["kids"].append(e["t"])
+        elif e["kind"] == "refers_to":
+            H[e["s"]]["out"].append([e["phrase"], e["t"]])
+            H[e["t"]]["in"].append(e["s"])
+        elif e["kind"] == "amends":
+            H[e["s"]]["amends"].append(e["t"])
+            H[e["t"]]["amended_by"].append(e["s"])
+    top = {}
+    for nid in st.order:
+        n = st.nodes[nid]
+        if n["level"] == "article":
+            for cid in n.get("chunk_ids") or []:
+                top.setdefault(cid, nid)
+    return H, top
 
 
 def main() -> None:
@@ -222,7 +268,10 @@ def main() -> None:
                 "detail": "ข้อที่ควรค้นเจอ: " + "; ".join(name(x) for x in t["gold"] if x in arts)})
     checks.sort(key=lambda c: {"error": 0, "warn": 1}[c["level"]])
 
-    data = {"arts": arts, "topics": topics, "tests": tests, "checks": checks, "overall": round(overall, 3),
+    H, top = hierarchy_data(list(chunks.values()))
+    for cid, a in arts.items():
+        a["hnode"] = top.get(cid)
+    data = {"arts": arts, "topics": topics, "tests": tests, "checks": checks, "overall": round(overall, 3), "H": H,
             "anns": {a["id"].split("_")[1]: {"title": a.get("official_title", ""), "role": a.get("role", "")}
                      for a in graph["nodes"]["announcements"]}}
     json.dump(data, open(args.out, "w", encoding="utf-8"), ensure_ascii=False)
