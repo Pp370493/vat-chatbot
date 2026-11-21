@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VAT Chatbot (ฉบับทดลอง)</title>
+<style>
+  :root { --fg:#1f2328; --muted:#656d76; --border:#d0d7de; --accent:#0969da; --warn:#9a6700; --bg:#ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9198a1; --border:#3d444d; --accent:#4493f8; --warn:#d29922; --bg:#0d1117; } }
+  body { margin:0; font-family: system-ui, "Sarabun", "Noto Sans Thai", sans-serif; color:var(--fg); background:var(--bg); }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.3rem; margin: 8px 0; }
+  .notice { color: var(--warn); font-size: .9rem; border:1px solid var(--warn); border-radius:8px; padding:8px 10px; margin-bottom:12px; }
+  form { display:flex; gap:8px; }
+  textarea { flex:1; min-height: 56px; font: inherit; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--fg); resize: vertical; }
+  button { font: inherit; padding: 0 18px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:wait; }
+  #answer { white-space: pre-wrap; line-height: 1.7; margin-top: 16px; }
+  .box { border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:12px; }
+  .box h2 { font-size: .95rem; margin:0 0 6px; }
+  ul { margin:0; padding-left: 18px; font-size:.9rem; }
+  .muted { color: var(--muted); font-size: .85rem; }
+  .err { color: #cf222e; }
+  @media (max-width: 480px) { form { flex-direction: column; } button { padding: 10px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>ถามเรื่องการจดทะเบียนภาษีมูลค่าเพิ่ม</h1>
+  <div class="notice">ฉบับทดลอง ยังไม่ผ่านการตรวจของผู้เชี่ยวชาญ และไม่ใช่คำแนะนำทางกฎหมาย ควรตรวจสอบกับกรมสรรพากร</div>
+  <form id="f">
+    <textarea id="q" placeholder="เช่น ไม่จดทะเบียนภาษีมูลค่าเพิ่มมีโทษอย่างไร" required maxlength="500"></textarea>
+    <button id="go" type="submit">ถาม</button>
+  </form>
+  <div id="answer"></div>
+  <div id="meta"></div>
+</main>
+<script>
+const f = document.getElementById('f'), q = document.getElementById('q'),
+      go = document.getElementById('go'), ans = document.getElementById('answer'), meta = document.getElementById('meta');
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+f.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const question = q.value.trim(); if (!question) return;
+  go.disabled = true; ans.textContent = 'กำลังค้นข้อมูลและตอบ...'; meta.innerHTML = '';
+  try {
+    const r = await fetch('/api/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question})});
+    const d = await r.json();
+    if (!r.ok) { ans.innerHTML = '<span class="err">' + esc(d.error || 'เกิดข้อผิดพลาด') + '</span>'; return; }
+    ans.textContent = d.answer;
+    let html = '';
+    if (d.sources && d.sources.length) {
+      html += '<div class="box"><h2>ข้อมูลอ้างอิงที่ค้นพบ</h2><ul>' +
+        d.sources.map(s => '<li>' + esc(s.label) + (s.is_current ? '' : ' <span class="muted">(ฉบับที่ถูกแทนที่แล้ว)</span>') + '</li>').join('') + '</ul></div>';
+    }
+    if (d.must_cite && d.must_cite.length) {
+      html += '<div class="box"><h2>มาตราที่ต้องอ้างเรื่องนี้</h2><ul>' +
+        d.must_cite.flatMap(p => p.cite.map(c => '<li>มาตรา ' + esc(c.section) + ' — ' + esc(c.status) + '</li>')).join('') + '</ul></div>';
+    }
+    if (!d.llm_ok) html += '<div class="box err">โมเดลภาษาไม่ตอบ: ' + esc(d.error || '') + '</div>';
+    meta.innerHTML = html;
+  } catch (err) {
+    ans.innerHTML = '<span class="err">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</span>';
+  } finally { go.disabled = false; }
+});
+</script>
+</body>
+</html>
